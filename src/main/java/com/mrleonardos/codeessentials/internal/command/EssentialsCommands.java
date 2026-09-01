@@ -31,6 +31,7 @@ import com.mrleonardos.codeessentials.api.teleport.TeleportJob;
 import com.mrleonardos.codeessentials.api.teleport.TeleportRequest;
 import com.mrleonardos.codeessentials.api.teleport.TeleportService;
 import com.mrleonardos.codeessentials.internal.EssentialsSettings;
+import com.mrleonardos.codeessentials.internal.SharedSettings;
 
 public final class EssentialsCommands {
 
@@ -57,6 +58,7 @@ public final class EssentialsCommands {
     private static final String ACTION = "action";
 
     private final Supplier<EssentialsSettings> settings;
+    private final Supplier<SharedSettings> shared;
     private final Supplier<CommandRoots> roots;
     private final Supplier<TeleportService> teleports;
     private final Supplier<HomeService> homes;
@@ -69,11 +71,13 @@ public final class EssentialsCommands {
     private final EssentialsMaintenance maintenance;
     private final Logger log;
 
-    public EssentialsCommands(Supplier<EssentialsSettings> settings, Supplier<CommandRoots> roots,
-        Supplier<TeleportService> teleports, Supplier<HomeService> homes, Supplier<WarpService> warps,
-        Supplier<SpawnService> spawns, Supplier<BackService> backs, TeleportRequests requests,
-        EssentialsArguments arguments, EssentialsSubjects subjects, EssentialsMaintenance maintenance, Logger log) {
+    public EssentialsCommands(Supplier<EssentialsSettings> settings, Supplier<SharedSettings> shared,
+        Supplier<CommandRoots> roots, Supplier<TeleportService> teleports, Supplier<HomeService> homes,
+        Supplier<WarpService> warps, Supplier<SpawnService> spawns, Supplier<BackService> backs,
+        TeleportRequests requests, EssentialsArguments arguments, EssentialsSubjects subjects,
+        EssentialsMaintenance maintenance, Logger log) {
         this.settings = settings;
+        this.shared = shared;
         this.roots = roots;
         this.teleports = teleports;
         this.homes = homes;
@@ -740,7 +744,7 @@ public final class EssentialsCommands {
             return;
         }
         context.reply(EssentialsMessages.MOVED, nameOf(who), destination.print());
-        if (settings.get()
+        if (shared.get()
             .logChanges()) {
             log.info(
                 "{} moved {} to {}",

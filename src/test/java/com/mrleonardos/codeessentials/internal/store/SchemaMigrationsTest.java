@@ -9,6 +9,9 @@ import java.util.Arrays;
 import org.junit.jupiter.api.Test;
 
 import com.google.gson.JsonObject;
+import com.mrleonardos.codecore.api.config.ConfigData;
+import com.mrleonardos.codecore.api.config.ConfigFormat;
+import com.mrleonardos.codecore.api.config.ConfigRoles;
 import com.mrleonardos.codecore.api.config.ConfigScope;
 import com.mrleonardos.codecore.api.config.ConfigSpec;
 import com.mrleonardos.codecore.api.config.Migration;
@@ -34,6 +37,10 @@ class SchemaMigrationsTest {
 
         assertEquals(ConfigScope.WORLD_STATE, players.scope());
         assertEquals(ConfigScope.WORLD_STATE, rates.scope());
+        assertEquals(ConfigRoles.ESSENTIALS, players.role());
+        assertEquals(ConfigRoles.ESSENTIALS, rates.role());
+        assertEquals(ConfigFormat.JSON, players.format(), "состояние игроков остаётся json");
+        assertEquals(ConfigFormat.JSON, rates.format(), "кулдауны остаются json");
         assertEquals(SchemaMigrations.PLAYERS_VERSION, players.schemaVersion());
         assertEquals(SchemaMigrations.RATES_VERSION, rates.schemaVersion());
         assertEquals(
@@ -79,7 +86,7 @@ class SchemaMigrationsTest {
             }
 
             @Override
-            public void apply(JsonObject data) {}
+            public void apply(ConfigData data) {}
         };
     }
 }

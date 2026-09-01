@@ -26,12 +26,14 @@ import com.mrleonardos.codeessentials.api.model.Point;
 import com.mrleonardos.codeessentials.api.store.ChangeBatch;
 import com.mrleonardos.codeessentials.api.store.StoreResult;
 import com.mrleonardos.codeessentials.internal.EssentialsSettings;
+import com.mrleonardos.codeessentials.internal.SharedSettings;
 
 public final class HomeServiceImpl implements HomeService {
 
     public static final long AWAIT_MILLIS = 10_000L;
 
     private final Supplier<EssentialsSettings> settings;
+    private final Supplier<SharedSettings> shared;
     private final PlayerMeta meta;
     private final PlayerStateWriter state;
     private final Supplier<HomeEvents> events;
@@ -41,9 +43,10 @@ public final class HomeServiceImpl implements HomeService {
     private final Set<UUID> touched = new LinkedHashSet<>();
     private boolean flushScheduled;
 
-    public HomeServiceImpl(Supplier<EssentialsSettings> settings, PlayerMeta meta, PlayerStateWriter state,
-        Supplier<HomeEvents> events, Scheduler scheduler, Logger log) {
+    public HomeServiceImpl(Supplier<EssentialsSettings> settings, Supplier<SharedSettings> shared, PlayerMeta meta,
+        PlayerStateWriter state, Supplier<HomeEvents> events, Scheduler scheduler, Logger log) {
         this.settings = settings;
+        this.shared = shared;
         this.meta = meta;
         this.state = state;
         this.events = events;
@@ -66,9 +69,10 @@ public final class HomeServiceImpl implements HomeService {
 
     @Override
     public int homeLimit(UUID player) {
-        EssentialsSettings current = settings.get();
-        EssentialsLimits ceilings = current.ceilings();
-        int fallback = current.defaultHomes(ceilings);
+        EssentialsLimits ceilings = settings.get()
+            .ceilings();
+        int fallback = shared.get()
+            .defaultHomes(ceilings);
         String raw = meta.value(player, EssentialsSettings.META_MAX_HOMES, null);
         if (raw == null || raw.trim()
             .isEmpty()) {
@@ -111,8 +115,8 @@ public final class HomeServiceImpl implements HomeService {
 
     private StoreResult writeHome(UUID player, String name, Point point, String actor) {
         String key = lower(name);
-        EssentialsSettings current = settings.get();
-        if (!current.ceilings()
+        if (!settings.get()
+            .ceilings()
             .acceptsName(key)) {
             return StoreResult.failure(StoreResult.Failure.INVALID_VALUE, String.valueOf(name));
         }
@@ -139,7 +143,8 @@ public final class HomeServiceImpl implements HomeService {
             return written;
         }
         announceSet(player, home, overwrite);
-        if (current.logChanges()) {
+        if (shared.get()
+            .logChanges()) {
             log.info("{} {} home {} of {} at {}", actor, overwrite ? "moved" : "set", key, player, point.print());
         }
         return written;
@@ -162,7 +167,7 @@ public final class HomeServiceImpl implements HomeService {
             return written;
         }
         touch(player);
-        if (settings.get()
+        if (shared.get()
             .logChanges()) {
             log.info("{} deleted home {} of {}", actor, key, player);
         }

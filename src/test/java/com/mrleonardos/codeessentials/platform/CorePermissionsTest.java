@@ -19,7 +19,8 @@ import org.apache.logging.log4j.core.LogEvent;
 import org.apache.logging.log4j.core.appender.AbstractAppender;
 import org.junit.jupiter.api.Test;
 
-import com.mrleonardos.codeessentials.internal.EssentialsSettings;
+import com.mrleonardos.codeessentials.internal.SharedFixtures;
+import com.mrleonardos.codeessentials.internal.SharedSettings;
 
 class CorePermissionsTest {
 
@@ -27,8 +28,8 @@ class CorePermissionsTest {
     private static final Logger LOG = LogManager.getLogger("codeessentials-test");
     private static final String NODE = "codeessentials.warp.go.shop";
 
-    private final EssentialsSettings settings = new EssentialsSettings();
-    private final CorePermissions permissions = new CorePermissions(() -> settings, () -> null, LOG);
+    private SharedSettings shared = SharedFixtures.audit(true, false);
+    private final CorePermissions permissions = new CorePermissions(() -> shared, () -> null, LOG);
 
     @Test
     void withoutAPermissionServiceBothWaysOfAskingAnswerNo() {
@@ -45,7 +46,7 @@ class CorePermissionsTest {
                 .noneMatch(line -> line.contains(NODE)),
             () -> "выключенный audit.logChecks про ноды молчит: " + quiet);
 
-        settings.audit.logChecks = true;
+        shared = SharedFixtures.audit(true, true);
         List<String> lines = record(() -> permissions.has(STEVE, NODE));
 
         assertTrue(

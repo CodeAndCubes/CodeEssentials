@@ -13,13 +13,20 @@ import java.util.Set;
 import org.apache.logging.log4j.Logger;
 
 import com.mrleonardos.codecore.api.command.CommandNode;
+import com.mrleonardos.codecore.api.config.Comment;
+import com.mrleonardos.codecore.api.config.ConfigRoles;
 import com.mrleonardos.codecore.api.config.ConfigScope;
 import com.mrleonardos.codecore.api.config.ConfigSpec;
 import com.mrleonardos.codeessentials.internal.EssentialsSettings;
 
+@Comment({ "Корни команд CodeEssentials: какие из них живут и под какими именами.",
+    "Сервер получает корни один раз при старте, поэтому правки ждут перезапуска." })
 public final class CommandRoots {
 
     public static final int VERSION = 1;
+
+    public static final String FILE = "commands";
+    public static final String FILE_NAME = "essentials-commands.toml";
 
     public static final String HOME = "home";
     public static final String SETHOME = "sethome";
@@ -45,12 +52,15 @@ public final class CommandRoots {
 
     private static final Map<String, List<String>> FACTORY = factoryTable();
 
+    @Comment({ "Запись на каждый корень. Снятая запись возвращается сюда при следующем старте.",
+        "Незнакомое имя корня пропускается с записью в лог." })
     public Map<String, Entry> commands = factoryEntries();
 
     private transient boolean filledIn;
 
     public static ConfigSpec<CommandRoots> spec() {
-        return ConfigSpec.of(EssentialsSettings.MODID, EssentialsSettings.COMMANDS_FILE, CommandRoots.class)
+        return ConfigSpec.of(EssentialsSettings.MODID, FILE, CommandRoots.class)
+            .role(ConfigRoles.ESSENTIALS)
             .scope(ConfigScope.SETTINGS)
             .schemaVersion(VERSION)
             .defaults(CommandRoots::new)
@@ -79,7 +89,7 @@ public final class CommandRoots {
 
     public List<CommandNode> chosen(List<CommandNode> roots, Logger log) {
         for (String name : unknownRoots()) {
-            log.warn("commands.json holds an unknown command root {}, the record is skipped", name);
+            log.warn("{} holds an unknown command root {}, the record is skipped", FILE_NAME, name);
         }
         Set<String> live = new LinkedHashSet<>();
         for (CommandNode root : roots) {
@@ -88,7 +98,7 @@ public final class CommandRoots {
                 entry = factoryEntry(root.name());
                 commands.put(root.name(), entry);
                 filledIn = true;
-                log.info("commands.json had no record for {}, the factory one is added", root.name());
+                log.info("{} had no record for {}, the factory one is added", FILE_NAME, root.name());
             }
             if (entry.enabled) {
                 live.add(root.name());
@@ -98,7 +108,7 @@ public final class CommandRoots {
         for (CommandNode root : roots) {
             Entry entry = commands.get(root.name());
             if (!entry.enabled) {
-                log.info("Command root {} is off in commands.json, the name stays free", root.name());
+                log.info("Command root {} is off in {}, the name stays free", root.name(), FILE_NAME);
                 continue;
             }
             for (String alias : aliasesOf(entry, root.name())) {
@@ -190,7 +200,10 @@ public final class CommandRoots {
 
     public static final class Entry {
 
+        @Comment("Ложь снимает корень целиком: имя команды остаётся свободным для чужого мода.")
         public boolean enabled = true;
+
+        @Comment("Дополнительные имена корня. Пустой список оставляет только основное имя.")
         public List<String> aliases;
 
         public Entry() {}

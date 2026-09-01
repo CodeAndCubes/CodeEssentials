@@ -17,6 +17,7 @@ import com.mrleonardos.codeessentials.api.model.WarpRecord;
 import com.mrleonardos.codeessentials.api.store.StoreResult;
 import com.mrleonardos.codeessentials.api.teleport.SafeSpotResult;
 import com.mrleonardos.codeessentials.internal.EssentialsSettings;
+import com.mrleonardos.codeessentials.internal.SharedSettings;
 
 class PlacesServicesTest {
 
@@ -26,10 +27,12 @@ class PlacesServicesTest {
     private static final Point NETHER = Point.of(-1, 3.0D, 70.0D, 4.0D);
 
     private EssentialsSettings settings;
+    private SharedSettings shared;
 
     @BeforeEach
     void setUp() {
         settings = new EssentialsSettings();
+        shared = SharedSettings.defaults();
     }
 
     @Test
@@ -70,6 +73,7 @@ class PlacesServicesTest {
         ServiceTestStubs.Files<WarpsFile> held = new ServiceTestStubs.Files<>(file);
         WarpServiceImpl warps = new WarpServiceImpl(
             () -> settings,
+            () -> shared,
             held,
             new ServiceTestStubs.Spots(SafeSpotResult.found(SHOP, SHOP, 1)),
             LOG);
@@ -90,6 +94,7 @@ class PlacesServicesTest {
         ServiceTestStubs.Files<WarpsFile> held = new ServiceTestStubs.Files<>(file);
         WarpServiceImpl warps = new WarpServiceImpl(
             () -> settings,
+            () -> shared,
             held,
             new ServiceTestStubs.Spots(SafeSpotResult.unsafe(1225)),
             LOG);
@@ -110,6 +115,7 @@ class PlacesServicesTest {
         ServiceTestStubs.Files<WarpsFile> held = new ServiceTestStubs.Files<>(file);
         WarpServiceImpl warps = new WarpServiceImpl(
             () -> settings,
+            () -> shared,
             held,
             new ServiceTestStubs.Spots(SafeSpotResult.unsafe(1225)),
             LOG);
@@ -128,6 +134,7 @@ class PlacesServicesTest {
         held.failOnSave = new IllegalStateException("disk is full");
         WarpServiceImpl warps = new WarpServiceImpl(
             () -> settings,
+            () -> shared,
             held,
             new ServiceTestStubs.Spots(SafeSpotResult.found(SHOP, SHOP, 1)),
             LOG);
@@ -175,9 +182,9 @@ class PlacesServicesTest {
     @Test
     void theSpawnOfTheDimensionWinsOverTheSharedOne() {
         SpawnFile file = new SpawnFile();
-        file.globalSpawn = SHOP.print();
+        file.global = SHOP.print();
         file.dimensions.put("-1", NETHER.print());
-        SpawnServiceImpl spawns = new SpawnServiceImpl(() -> settings, new ServiceTestStubs.Files<>(file), LOG);
+        SpawnServiceImpl spawns = new SpawnServiceImpl(() -> shared, new ServiceTestStubs.Files<>(file), LOG);
 
         assertEquals(
             NETHER,
@@ -192,7 +199,7 @@ class PlacesServicesTest {
     @Test
     void anEmptyFileLeavesTheSpawnToVanilla() {
         SpawnServiceImpl spawns = new SpawnServiceImpl(
-            () -> settings,
+            () -> shared,
             new ServiceTestStubs.Files<>(new SpawnFile()),
             LOG);
 
@@ -207,7 +214,7 @@ class PlacesServicesTest {
     @Test
     void theDimensionSpawnIsKeyedByThePointItself() {
         SpawnFile file = new SpawnFile();
-        SpawnServiceImpl spawns = new SpawnServiceImpl(() -> settings, new ServiceTestStubs.Files<>(file), LOG);
+        SpawnServiceImpl spawns = new SpawnServiceImpl(() -> shared, new ServiceTestStubs.Files<>(file), LOG);
 
         assertTrue(
             spawns.setDimensionSpawn(NETHER, "Steve")
@@ -223,9 +230,9 @@ class PlacesServicesTest {
     @Test
     void aBrokenSpawnLineIsSkipped() {
         SpawnFile file = new SpawnFile();
-        file.globalSpawn = "мусор";
+        file.global = "мусор";
         file.dimensions.put("нечисло", NETHER.print());
-        SpawnServiceImpl spawns = new SpawnServiceImpl(() -> settings, new ServiceTestStubs.Files<>(file), LOG);
+        SpawnServiceImpl spawns = new SpawnServiceImpl(() -> shared, new ServiceTestStubs.Files<>(file), LOG);
 
         assertTrue(
             spawns.table()
@@ -338,6 +345,7 @@ class PlacesServicesTest {
     private WarpServiceImpl warps(WarpsFile file, SafeSpotResult spot) {
         return new WarpServiceImpl(
             () -> settings,
+            () -> shared,
             new ServiceTestStubs.Files<>(file),
             new ServiceTestStubs.Spots(spot),
             LOG);

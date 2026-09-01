@@ -19,6 +19,8 @@ import com.mrleonardos.codeessentials.api.model.PlayerRecord;
 import com.mrleonardos.codeessentials.api.model.Point;
 import com.mrleonardos.codeessentials.api.store.StoreResult;
 import com.mrleonardos.codeessentials.internal.EssentialsSettings;
+import com.mrleonardos.codeessentials.internal.SharedFixtures;
+import com.mrleonardos.codeessentials.internal.SharedSettings;
 
 class HomeServiceImplTest {
 
@@ -27,6 +29,7 @@ class HomeServiceImplTest {
     private static final Point OTHER = Point.of(-1, 3.0D, 70.0D, 4.0D);
 
     private EssentialsSettings settings;
+    private SharedSettings shared;
     private ServiceTestStubs.State state;
     private ServiceTestStubs.Meta meta;
     private ServiceTestStubs.Ticks ticks;
@@ -36,12 +39,14 @@ class HomeServiceImplTest {
     @BeforeEach
     void setUp() {
         settings = new EssentialsSettings();
+        shared = SharedSettings.defaults();
         state = new ServiceTestStubs.State();
         meta = new ServiceTestStubs.Meta();
         ticks = new ServiceTestStubs.Ticks();
         events = new ServiceTestStubs.Homes();
         homes = new HomeServiceImpl(
             () -> settings,
+            () -> shared,
             meta,
             state,
             () -> events,
@@ -51,14 +56,14 @@ class HomeServiceImplTest {
 
     @Test
     void withoutMetaTheLimitComesFromTheConfig() {
-        settings.homes.defaultMax = 5;
+        shared = SharedFixtures.homes(5);
 
         assertEquals(5, homes.homeLimit(STEVE));
     }
 
     @Test
     void metaOfTheGroupWinsOverTheConfig() {
-        settings.homes.defaultMax = 3;
+        shared = SharedFixtures.homes(3);
         meta.values.put(EssentialsSettings.META_MAX_HOMES, "7");
 
         assertEquals(7, homes.homeLimit(STEVE));
@@ -66,7 +71,7 @@ class HomeServiceImplTest {
 
     @Test
     void brokenMetaIsTreatedAsAbsent() {
-        settings.homes.defaultMax = 3;
+        shared = SharedFixtures.homes(3);
 
         meta.values.put(EssentialsSettings.META_MAX_HOMES, "три");
         assertEquals(3, homes.homeLimit(STEVE));
@@ -262,6 +267,7 @@ class HomeServiceImplTest {
         events.register(0, watcher);
         HomeServiceImpl offThread = new HomeServiceImpl(
             () -> settings,
+            () -> shared,
             meta,
             state,
             () -> events,

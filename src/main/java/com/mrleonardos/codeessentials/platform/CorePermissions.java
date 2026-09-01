@@ -10,23 +10,23 @@ import org.apache.logging.log4j.Logger;
 
 import com.mrleonardos.codecore.api.CodeApi;
 import com.mrleonardos.codecore.api.service.PermissionService;
-import com.mrleonardos.codeessentials.internal.EssentialsSettings;
+import com.mrleonardos.codeessentials.internal.SharedSettings;
 import com.mrleonardos.codeessentials.internal.engine.PlayerRights;
 import com.mrleonardos.codeessentials.internal.service.PlayerMeta;
 
 final class CorePermissions implements PlayerRights, PlayerMeta {
 
-    private final Supplier<EssentialsSettings> settings;
+    private final Supplier<SharedSettings> shared;
     private final Supplier<PermissionService> lookup;
     private final Logger log;
     private boolean missingTold;
 
-    CorePermissions(Supplier<EssentialsSettings> settings, Logger log) {
-        this(settings, CorePermissions::fromRegistry, log);
+    CorePermissions(Supplier<SharedSettings> shared, Logger log) {
+        this(shared, CorePermissions::fromRegistry, log);
     }
 
-    CorePermissions(Supplier<EssentialsSettings> settings, Supplier<PermissionService> lookup, Logger log) {
-        this.settings = settings;
+    CorePermissions(Supplier<SharedSettings> shared, Supplier<PermissionService> lookup, Logger log) {
+        this.shared = shared;
         this.lookup = lookup;
         this.log = log;
     }
@@ -70,7 +70,7 @@ final class CorePermissions implements PlayerRights, PlayerMeta {
     }
 
     private boolean explained(Object subject, String node, boolean allowed) {
-        if (!allowed && settings.get()
+        if (!allowed && shared.get()
             .logChecks()) {
             log.debug("{} has no {}", subject, node);
         }

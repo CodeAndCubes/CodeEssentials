@@ -9,7 +9,9 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import com.mrleonardos.codecore.api.CodeApi;
+import com.mrleonardos.codecore.api.adapter.RoleServices;
 import com.mrleonardos.codecore.api.config.ConfigFile;
+import com.mrleonardos.codecore.api.config.ConfigRoles;
 import com.mrleonardos.codecore.api.config.ConfigService;
 import com.mrleonardos.codecore.api.service.ServicePriority;
 import com.mrleonardos.codeessentials.Tags;
@@ -23,10 +25,14 @@ import com.mrleonardos.codeessentials.api.model.PlayerRecord;
 import com.mrleonardos.codeessentials.api.model.SpawnTable;
 import com.mrleonardos.codeessentials.api.store.PlayerDataStore;
 import com.mrleonardos.codeessentials.api.teleport.SafeSpotPolicy;
-import com.mrleonardos.codeessentials.api.teleport.TeleportCause;
 import com.mrleonardos.codeessentials.api.teleport.TeleportService;
+import com.mrleonardos.codeessentials.internal.EssentialsClaim;
+import com.mrleonardos.codeessentials.internal.EssentialsRole;
+import com.mrleonardos.codeessentials.internal.EssentialsRules;
+import com.mrleonardos.codeessentials.internal.EssentialsSection;
 import com.mrleonardos.codeessentials.internal.EssentialsSettings;
 import com.mrleonardos.codeessentials.internal.Listeners;
+import com.mrleonardos.codeessentials.internal.SharedSettings;
 import com.mrleonardos.codeessentials.internal.command.CommandRoots;
 import com.mrleonardos.codeessentials.internal.command.EssentialsCommands;
 import com.mrleonardos.codeessentials.internal.engine.Cooldowns;
@@ -62,6 +68,8 @@ public final class CodeEssentialsMod {
 
     public static final Logger LOG = LogManager.getLogger("CodeEssentials");
 
+    private ConfigService configs;
+    private ConfigFile<EssentialsSection> section;
     private ConfigFile<EssentialsSettings> settings;
     private ConfigFile<CommandRoots> roots;
     private ConfigFile<WarpsFile> warpsFile;
@@ -80,6 +88,7 @@ public final class CodeEssentialsMod {
     private BackServiceImpl backs;
 
     private volatile EssentialsLimits ceilings;
+    private volatile SharedSettings shared;
     private volatile EngineRules rules;
 
     @Mod.EventHandler
@@ -89,7 +98,43 @@ public final class CodeEssentialsMod {
 
     @Mod.EventHandler
     public void init(FMLInitializationEvent event) {
-        ConfigService configs = CodeApi.configs();
+        configs = CodeApi.configs();
+        section = configs.section(EssentialsSection.spec());
+        CodeApi.adapters()
+            .declareRole(EssentialsRole.spec());
+        CodeApi.adapters()
+            .offer(new EssentialsClaim(this::build));
+    }
+
+    @Mod.EventHandler
+    public void serverStarting(FMLServerStartingEvent event) {
+        String owner = CodeApi.adapters()
+            .owner(ConfigRoles.ESSENTIALS);
+        if (!EssentialsClaim.NAME.equals(owner)) {
+            LOG.info(
+                "Role {} is held by {}, CodeEssentials stands aside: no command roots, no files of its own, no listeners",
+                ConfigRoles.ESSENTIALS,
+                owner == null ? ServiceBridge.NOBODY : owner);
+            return;
+        }
+        threads.attach(Thread.currentThread());
+        EssentialsApi.freeze();
+        writer.start();
+        board.start();
+        summary();
+    }
+
+    @Mod.EventHandler
+    public void serverStopping(FMLServerStoppingEvent event) {
+        if (board == null) {
+            return;
+        }
+        board.stop();
+        tracker.rest();
+        writer.stop();
+    }
+
+    private RoleServices build() {
         LongSupplier clock = System::currentTimeMillis;
         threads = new ServerThreads(CodeApi.scheduler());
 
@@ -100,8 +145,9 @@ public final class CodeEssentialsMod {
         refresh();
 
         Supplier<EssentialsSettings> config = settings::get;
+        Supplier<SharedSettings> common = this::shared;
         Listeners listeners = new Listeners();
-        CorePermissions rights = new CorePermissions(config, LOG);
+        CorePermissions rights = new CorePermissions(common, LOG);
 
         store = JsonPlayerDataStore.create(configs, ceilings, clock, LOG);
         SafeSpotFinder builtin = new SafeSpotFinder();
@@ -115,14 +161,12 @@ public final class CodeEssentialsMod {
 
         writer = new SingleWriterImpl(
             store,
-            config.get()
-                .provider(),
+            shared.provider(),
             EssentialsApi::store,
             threads,
             LOG,
             clock,
-            config.get()
-                .autosaveTicks());
+            shared.autosaveTicks());
         StateWriter state = new StateWriter(writer);
 
         ServerWorlds worlds = new ServerWorlds(config, () -> policy, LOG);
@@ -141,17 +185,10 @@ public final class CodeEssentialsMod {
             clock,
             LOG);
         board = new RequestBoard(engine, worlds, cooldowns, this::rules, threads, clock);
-        homes = new HomeServiceImpl(config, rights, state, listeners::homes, threads, LOG);
-        warps = new WarpServiceImpl(config, warpsFile, worlds, LOG);
-        spawns = new SpawnServiceImpl(config, spawnFile, LOG);
+        homes = new HomeServiceImpl(config, common, rights, state, listeners::homes, threads, LOG);
+        warps = new WarpServiceImpl(config, common, warpsFile, worlds, LOG);
+        spawns = new SpawnServiceImpl(common, spawnFile, LOG);
 
-        ServicePriority priority = config.get()
-            .priority(LOG);
-        ServiceBridge.register(TeleportService.class, engine, priority);
-        ServiceBridge.register(HomeService.class, homes, priority);
-        ServiceBridge.register(WarpService.class, warps, priority);
-        ServiceBridge.register(SpawnService.class, spawns, priority);
-        ServiceBridge.register(BackService.class, backs, priority);
         ServiceBridge.register(PlayerDataStore.class, store, ServicePriority.BUILTIN);
         ServiceBridge.register(SafeSpotPolicy.class, policy, ServicePriority.BUILTIN);
         ServiceBridge.install(listeners);
@@ -163,6 +200,7 @@ public final class CodeEssentialsMod {
 
         new EssentialsCommands(
             config,
+            common,
             roots::get,
             ServiceBridge.holder(TeleportService.class, engine),
             homeHolder,
@@ -172,7 +210,16 @@ public final class CodeEssentialsMod {
             new RequestBridge(board),
             new PlatformArguments(names, homeHolder, warpHolder, rights),
             new SenderSubjects(names, rights),
-            new PlatformMaintenance(settings, roots, warpsFile, spawnFile, this::refresh, LOG),
+            new PlatformMaintenance(
+                configs,
+                settings,
+                section,
+                roots,
+                warpsFile,
+                spawnFile,
+                this::rules,
+                this::refresh,
+                LOG),
             LOG).register(CodeApi.commands());
         completeRoots();
 
@@ -185,26 +232,22 @@ public final class CodeEssentialsMod {
             .bus()
             .register(tracker);
         MinecraftForge.EVENT_BUS.register(lifecycle);
-    }
 
-    @Mod.EventHandler
-    public void serverStarting(FMLServerStartingEvent event) {
-        threads.attach(Thread.currentThread());
-        EssentialsApi.freeze();
-        writer.start();
-        board.start();
-        summary();
-    }
-
-    @Mod.EventHandler
-    public void serverStopping(FMLServerStoppingEvent event) {
-        board.stop();
-        tracker.rest();
-        writer.stop();
+        return RoleServices.builder()
+            .add(TeleportService.class, engine)
+            .add(HomeService.class, homes)
+            .add(WarpService.class, warps)
+            .add(SpawnService.class, spawns)
+            .add(BackService.class, backs)
+            .build();
     }
 
     private EngineRules rules() {
         return rules;
+    }
+
+    private SharedSettings shared() {
+        return shared;
     }
 
     private void completeRoots() {
@@ -214,46 +257,26 @@ public final class CodeEssentialsMod {
         }
         try {
             roots.save();
-            LOG.info("Records of the new command root(s) are written to {}.json", EssentialsSettings.COMMANDS_FILE);
+            LOG.info("Records of the new command root(s) are written to {}", CommandRoots.FILE_NAME);
         } catch (RuntimeException failure) {
             LOG.warn(
-                "{}.json was not written, the new command root(s) stay only in memory: {}",
-                EssentialsSettings.COMMANDS_FILE,
+                "{} was not written, the new command root(s) stay only in memory: {}",
+                CommandRoots.FILE_NAME,
                 failure.toString(),
                 failure);
         }
     }
 
     private void refresh() {
-        ceilings = settings.get()
-            .ceilings(LOG);
-        rules = build();
-    }
-
-    private EngineRules build() {
         EssentialsSettings current = settings.get();
-        EssentialsLimits held = ceilings;
-        EngineRules.Builder builder = EngineRules.builder()
-            .limits(held)
-            .warmupSeconds(current.warmupSeconds(held))
-            .moveRadius(current.warmupMoveRadius())
-            .verticalMoveRadius(current.warmupMoveHeight())
-            .cancelOnDamage(current.warmupCancelOnDamage())
-            .requestRateSeconds(current.requestRateSeconds())
-            .requestTimeoutSeconds(current.requestTimeoutSeconds(held))
-            .maxPending(current.maxPending(held))
-            .safeSpot(current.spotLimits(held));
+        ceilings = current.ceilings(LOG);
+        shared = SharedSettings.of(configs, section.get());
         current.backMode(LOG);
-        for (TeleportCause cause : TeleportCause.values()) {
-            builder.cooldown(cause, current.cooldownSeconds(cause));
-        }
-        return builder.build();
+        rules = EssentialsRules.of(current, shared, ceilings);
     }
 
     private String provider() {
-        return EssentialsApi.store(
-            settings.get()
-                .provider())
+        return EssentialsApi.store(shared.provider())
             .map(PlayerDataStore::id)
             .orElseGet(store::id);
     }

@@ -35,6 +35,8 @@ import com.mrleonardos.codeessentials.api.teleport.TeleportCause;
 import com.mrleonardos.codeessentials.api.teleport.TeleportJob;
 import com.mrleonardos.codeessentials.api.teleport.TeleportRequest;
 import com.mrleonardos.codeessentials.internal.EssentialsSettings;
+import com.mrleonardos.codeessentials.internal.SharedFixtures;
+import com.mrleonardos.codeessentials.internal.SharedSettings;
 
 class EssentialsCommandsTest {
 
@@ -46,6 +48,7 @@ class EssentialsCommandsTest {
     private final Logger log = LogManager.getLogger("codeessentials-test");
 
     private EssentialsSettings settings;
+    private SharedSettings shared;
     private CommandRoots book;
     private CommandTestStubs.Subjects subjects;
     private CommandTestStubs.Teleports teleports;
@@ -60,6 +63,7 @@ class EssentialsCommandsTest {
     @BeforeEach
     void setUp() {
         settings = new EssentialsSettings();
+        shared = SharedSettings.defaults();
         book = new CommandRoots();
         subjects = new CommandTestStubs.Subjects();
         teleports = new CommandTestStubs.Teleports();
@@ -71,6 +75,7 @@ class EssentialsCommandsTest {
         maintenance = new CommandTestStubs.Maintenance();
         commands = new EssentialsCommands(
             () -> settings,
+            () -> shared,
             () -> book,
             () -> teleports,
             () -> homes,
@@ -225,7 +230,7 @@ class EssentialsCommandsTest {
 
     @Test
     void theAuditOfAdminMovesGoesQuietWithTheFlagOff() {
-        settings.audit.logChanges = false;
+        shared = SharedFixtures.audit(false, false);
         subjects.actor = "console";
         teleports.outcome = TeleportJob.State.DONE;
 

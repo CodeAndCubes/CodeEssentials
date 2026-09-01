@@ -18,6 +18,8 @@ import org.apache.logging.log4j.core.appender.AbstractAppender;
 import org.junit.jupiter.api.Test;
 
 import com.mrleonardos.codecore.api.command.CommandNode;
+import com.mrleonardos.codecore.api.config.ConfigFormat;
+import com.mrleonardos.codecore.api.config.ConfigRoles;
 import com.mrleonardos.codeessentials.internal.EssentialsSettings;
 
 class CommandRootsTest {
@@ -207,13 +209,21 @@ class CommandRootsTest {
     @Test
     void theFileSitsBesideTheOtherSettings() {
         assertEquals(
-            EssentialsSettings.COMMANDS_FILE,
+            CommandRoots.FILE,
             CommandRoots.spec()
                 .name());
         assertEquals(
             EssentialsSettings.MODID,
             CommandRoots.spec()
                 .modid());
+        assertEquals(
+            ConfigRoles.ESSENTIALS,
+            CommandRoots.spec()
+                .role());
+        assertEquals(
+            ConfigFormat.TOML,
+            CommandRoots.spec()
+                .format());
     }
 
     private static List<CommandNode> roots(String... names) {

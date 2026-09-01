@@ -8,11 +8,12 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.Test;
 
+import com.mrleonardos.codecore.api.config.ConfigFormat;
+import com.mrleonardos.codecore.api.config.ConfigRoles;
 import com.mrleonardos.codecore.api.config.ConfigScope;
-import com.mrleonardos.codecore.api.service.ServicePriority;
+import com.mrleonardos.codecore.api.config.ConfigSpec;
 import com.mrleonardos.codeessentials.api.EssentialsLimits;
 import com.mrleonardos.codeessentials.api.teleport.SafeSpotLimits;
-import com.mrleonardos.codeessentials.api.teleport.TeleportCause;
 
 class EssentialsSettingsTest {
 
@@ -22,42 +23,16 @@ class EssentialsSettingsTest {
     void theFreshFileCarriesTheValuesFromTheDesign() {
         EssentialsSettings settings = new EssentialsSettings();
 
-        assertEquals(ServicePriority.ADDON, settings.priority(LOG));
-        assertEquals("json", settings.provider());
-        assertEquals(30, settings.autosaveSeconds());
-        assertEquals(600, settings.autosaveTicks());
-        assertEquals(3, settings.warmupSeconds(settings.ceilings()));
+        assertEquals(EssentialsSettings.DEFAULT_POLICY, settings.policy());
         assertEquals(2.0D, settings.warmupMoveRadius(), 0.0D);
         assertEquals(1.0D, settings.warmupMoveHeight(), 0.0D);
         assertTrue(settings.warmupCancelOnDamage());
         assertFalse(settings.generateChunks());
-        assertEquals(3, settings.defaultHomes(settings.ceilings()));
         assertEquals(EssentialsSettings.BACK_BOTH, settings.backMode());
         assertEquals(60, settings.requestTimeoutSeconds(settings.ceilings()));
         assertEquals(8, settings.maxPending(settings.ceilings()));
         assertEquals(10, settings.requestRateSeconds());
-        assertTrue(settings.logChanges());
-        assertFalse(settings.logChecks());
         assertEquals(SafeSpotLimits.defaults(), settings.spotLimits(settings.ceilings()));
-    }
-
-    @Test
-    void everyCauseStartsWithoutACooldown() {
-        EssentialsSettings settings = new EssentialsSettings();
-
-        for (TeleportCause cause : TeleportCause.values()) {
-            assertEquals(0, settings.cooldownSeconds(cause), cause.name());
-        }
-    }
-
-    @Test
-    void aCooldownFromTheFileIsReadByTheCauseKey() {
-        EssentialsSettings settings = new EssentialsSettings();
-        settings.teleport.cooldowns.put(TeleportCause.HOME.key(), Integer.valueOf(45));
-        settings.teleport.cooldowns.put(TeleportCause.WARP.key(), Integer.valueOf(-5));
-
-        assertEquals(45, settings.cooldownSeconds(TeleportCause.HOME));
-        assertEquals(0, settings.cooldownSeconds(TeleportCause.WARP), "минус не превращается в бесконечность");
     }
 
     @Test
@@ -100,17 +75,6 @@ class EssentialsSettingsTest {
     }
 
     @Test
-    void anUnknownPriorityFallsBackToAddon() {
-        EssentialsSettings settings = new EssentialsSettings();
-        settings.servicePriority = "boss";
-
-        assertEquals(ServicePriority.ADDON, settings.priority(LOG));
-
-        settings.servicePriority = "override";
-        assertEquals(ServicePriority.OVERRIDE, settings.priority(LOG));
-    }
-
-    @Test
     void backOnAcceptsFourWordsAndFallsBackToBoth() {
         EssentialsSettings settings = new EssentialsSettings();
 
@@ -132,54 +96,44 @@ class EssentialsSettingsTest {
     }
 
     @Test
-    void anEmptyProviderNameFallsBackToJson() {
+    void anEmptyPolicyNameFallsBackToTheBuiltinOne() {
         EssentialsSettings settings = new EssentialsSettings();
-        settings.storage.playerProvider = "   ";
-        settings.safeSpot.policy = null;
+        settings.safeSpot.policy = "   ";
 
-        assertEquals(EssentialsSettings.DEFAULT_PROVIDER, settings.provider());
+        assertEquals(EssentialsSettings.DEFAULT_POLICY, settings.policy());
+
+        settings.safeSpot.policy = null;
         assertEquals(EssentialsSettings.DEFAULT_POLICY, settings.policy());
     }
 
     @Test
-    void theSpecPointsAtTheSettingsFile() {
-        assertEquals(
-            EssentialsSettings.MODID,
-            EssentialsSettings.spec()
-                .modid());
-        assertEquals(
-            EssentialsSettings.SETTINGS_FILE,
-            EssentialsSettings.spec()
-                .name());
-        assertEquals(
-            ConfigScope.SETTINGS,
-            EssentialsSettings.spec()
-                .scope());
-        assertEquals(
-            EssentialsSettings.SETTINGS_VERSION,
-            EssentialsSettings.spec()
-                .schemaVersion());
+    void theSpecPointsAtTheOwnFileOfTheRole() {
+        ConfigSpec<EssentialsSettings> spec = EssentialsSettings.spec();
+
+        assertEquals(EssentialsSettings.MODID, spec.modid());
+        assertEquals(ConfigSpec.OWN_NAME, spec.name(), "essentials.toml принадлежит владельцу целиком");
+        assertEquals(ConfigRoles.ESSENTIALS, spec.role());
+        assertEquals(ConfigScope.SETTINGS, spec.scope());
+        assertEquals(ConfigFormat.TOML, spec.format());
+        assertEquals(EssentialsSettings.SETTINGS_VERSION, spec.schemaVersion());
     }
 
     @Test
     void aFileEditedIntoNullSectionsIsHealedBeforeUse() {
         EssentialsSettings settings = new EssentialsSettings();
-        settings.storage = null;
         settings.teleport = null;
         settings.safeSpot = null;
-        settings.homes = null;
         settings.back = null;
         settings.requests = null;
         settings.limits = null;
-        settings.audit = null;
 
         EssentialsSettings.spec()
             .validator()
             .accept(settings);
 
-        assertEquals("json", settings.provider());
-        assertEquals(3, settings.defaultHomes(settings.ceilings()));
-        assertEquals(0, settings.cooldownSeconds(TeleportCause.HOME));
+        assertEquals(EssentialsSettings.DEFAULT_POLICY, settings.policy());
+        assertEquals(EssentialsSettings.BACK_BOTH, settings.backMode());
+        assertEquals(10, settings.requestRateSeconds());
     }
 
     @Test
@@ -191,9 +145,9 @@ class EssentialsSettingsTest {
             .defaults()
             .get();
 
-        first.homes.defaultMax = 9;
+        first.limits.homesPerPlayer = 9;
 
-        assertEquals(3, second.homes.defaultMax);
-        assertEquals(3, EssentialsSettings.defaults().homes.defaultMax);
+        assertEquals(EssentialsLimits.DEFAULT_HOMES_PER_PLAYER, second.limits.homesPerPlayer);
+        assertEquals(EssentialsLimits.DEFAULT_HOMES_PER_PLAYER, EssentialsSettings.defaults().limits.homesPerPlayer);
     }
 }

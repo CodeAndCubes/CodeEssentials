@@ -12,16 +12,16 @@ import com.mrleonardos.codeessentials.api.manage.SpawnService;
 import com.mrleonardos.codeessentials.api.model.Point;
 import com.mrleonardos.codeessentials.api.model.SpawnTable;
 import com.mrleonardos.codeessentials.api.store.StoreResult;
-import com.mrleonardos.codeessentials.internal.EssentialsSettings;
+import com.mrleonardos.codeessentials.internal.SharedSettings;
 
 public final class SpawnServiceImpl implements SpawnService {
 
-    private final Supplier<EssentialsSettings> settings;
+    private final Supplier<SharedSettings> shared;
     private final ConfigFile<SpawnFile> file;
     private final Logger log;
 
-    public SpawnServiceImpl(Supplier<EssentialsSettings> settings, ConfigFile<SpawnFile> file, Logger log) {
-        this.settings = settings;
+    public SpawnServiceImpl(Supplier<SharedSettings> shared, ConfigFile<SpawnFile> file, Logger log) {
+        this.shared = shared;
         this.file = file;
         this.log = log;
     }
@@ -43,10 +43,10 @@ public final class SpawnServiceImpl implements SpawnService {
             }
             byDimension.put(dimension, point);
         }
-        Point global = Point.parse(stored.globalSpawn)
+        Point global = Point.parse(stored.global)
             .orElse(null);
-        if (global == null && stored.globalSpawn != null) {
-            log.warn("Global spawn is unreadable and was skipped: {}", stored.globalSpawn);
+        if (global == null && stored.global != null) {
+            log.warn("Global spawn is unreadable and was skipped: {}", stored.global);
         }
         return SpawnTable.of(global, byDimension);
     }
@@ -62,17 +62,17 @@ public final class SpawnServiceImpl implements SpawnService {
             return StoreResult.failure(StoreResult.Failure.INVALID_VALUE, "point and actor are required");
         }
         if (!file.loaded()) {
-            return StoreResult.failure(StoreResult.Failure.PROVIDER_FAILED, EssentialsSettings.SPAWN_FILE);
+            return StoreResult.failure(StoreResult.Failure.PROVIDER_FAILED, SpawnFile.FILE);
         }
         SpawnFile stored = file.get();
-        String previous = stored.globalSpawn;
-        stored.globalSpawn = point.print();
+        String previous = stored.global;
+        stored.global = point.print();
         StoreResult written = write();
         if (!written.successful()) {
-            stored.globalSpawn = previous;
+            stored.global = previous;
             return written;
         }
-        if (settings.get()
+        if (shared.get()
             .logChanges()) {
             log.info("{} set the global spawn at {}", actor, point.print());
         }
@@ -85,7 +85,7 @@ public final class SpawnServiceImpl implements SpawnService {
             return StoreResult.failure(StoreResult.Failure.INVALID_VALUE, "point and actor are required");
         }
         if (!file.loaded()) {
-            return StoreResult.failure(StoreResult.Failure.PROVIDER_FAILED, EssentialsSettings.SPAWN_FILE);
+            return StoreResult.failure(StoreResult.Failure.PROVIDER_FAILED, SpawnFile.FILE);
         }
         SpawnFile stored = file.get();
         String key = String.valueOf(point.dimension());
@@ -100,7 +100,7 @@ public final class SpawnServiceImpl implements SpawnService {
             }
             return written;
         }
-        if (settings.get()
+        if (shared.get()
             .logChanges()) {
             log.info("{} set the spawn of dimension {} at {}", actor, key, point.print());
         }
@@ -111,7 +111,7 @@ public final class SpawnServiceImpl implements SpawnService {
         try {
             file.save();
         } catch (RuntimeException broken) {
-            log.warn("Spawn file was not written, nothing changed", broken);
+            log.warn("{} was not written, nothing changed", SpawnFile.FILE_NAME, broken);
             return StoreResult.failure(StoreResult.Failure.PROVIDER_FAILED, String.valueOf(broken.getMessage()));
         }
         return StoreResult.success();

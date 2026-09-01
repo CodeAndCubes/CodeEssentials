@@ -16,17 +16,20 @@ import com.mrleonardos.codeessentials.api.model.WarpRecord;
 import com.mrleonardos.codeessentials.api.store.StoreResult;
 import com.mrleonardos.codeessentials.api.teleport.SafeSpotResult;
 import com.mrleonardos.codeessentials.internal.EssentialsSettings;
+import com.mrleonardos.codeessentials.internal.SharedSettings;
 
 public final class WarpServiceImpl implements WarpService {
 
     private final Supplier<EssentialsSettings> settings;
+    private final Supplier<SharedSettings> shared;
     private final ConfigFile<WarpsFile> file;
     private final SpotCheck spots;
     private final Logger log;
 
-    public WarpServiceImpl(Supplier<EssentialsSettings> settings, ConfigFile<WarpsFile> file, SpotCheck spots,
-        Logger log) {
+    public WarpServiceImpl(Supplier<EssentialsSettings> settings, Supplier<SharedSettings> shared,
+        ConfigFile<WarpsFile> file, SpotCheck spots, Logger log) {
         this.settings = settings;
+        this.shared = shared;
         this.file = file;
         this.spots = spots;
         this.log = log;
@@ -61,7 +64,7 @@ public final class WarpServiceImpl implements WarpService {
             return StoreResult.failure(StoreResult.Failure.INVALID_VALUE, "warp and actor are required");
         }
         if (!file.loaded()) {
-            return StoreResult.failure(StoreResult.Failure.PROVIDER_FAILED, EssentialsSettings.WARPS_FILE);
+            return StoreResult.failure(StoreResult.Failure.PROVIDER_FAILED, WarpsFile.FILE);
         }
         Map<String, WarpRecord> held = warps();
         boolean overwrite = held.containsKey(warp.name());
@@ -97,7 +100,7 @@ public final class WarpServiceImpl implements WarpService {
             restore(stored, warp.name(), previous);
             return written;
         }
-        if (settings.get()
+        if (shared.get()
             .logChanges()) {
             log.info(
                 "{} {} warp {} at {}",
@@ -116,7 +119,7 @@ public final class WarpServiceImpl implements WarpService {
             return StoreResult.failure(StoreResult.Failure.INVALID_VALUE, "name and actor are required");
         }
         if (!file.loaded()) {
-            return StoreResult.failure(StoreResult.Failure.PROVIDER_FAILED, EssentialsSettings.WARPS_FILE);
+            return StoreResult.failure(StoreResult.Failure.PROVIDER_FAILED, WarpsFile.FILE);
         }
         String key = lower(name);
         WarpsFile held = file.get();
@@ -130,7 +133,7 @@ public final class WarpServiceImpl implements WarpService {
             restore(held, key, previous);
             return written;
         }
-        if (settings.get()
+        if (shared.get()
             .logChanges()) {
             log.info("{} deleted warp {}", actor, key);
         }
@@ -141,7 +144,7 @@ public final class WarpServiceImpl implements WarpService {
         try {
             file.save();
         } catch (RuntimeException broken) {
-            log.warn("Warps file was not written, nothing changed", broken);
+            log.warn("{} was not written, nothing changed", WarpsFile.FILE_NAME, broken);
             return StoreResult.failure(StoreResult.Failure.PROVIDER_FAILED, String.valueOf(broken.getMessage()));
         }
         return StoreResult.success();

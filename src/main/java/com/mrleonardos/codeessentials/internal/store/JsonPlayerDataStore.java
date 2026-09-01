@@ -12,6 +12,8 @@ import org.apache.logging.log4j.Logger;
 
 import com.google.gson.JsonObject;
 import com.mrleonardos.codecore.api.config.ConfigFile;
+import com.mrleonardos.codecore.api.config.ConfigFormat;
+import com.mrleonardos.codecore.api.config.ConfigRoles;
 import com.mrleonardos.codecore.api.config.ConfigScope;
 import com.mrleonardos.codecore.api.config.ConfigService;
 import com.mrleonardos.codecore.api.config.ConfigSpec;
@@ -28,6 +30,8 @@ public final class JsonPlayerDataStore implements PlayerDataStore, BufferedStore
     public static final String MODID = "codeessentials";
     public static final String PLAYERS_FILE = "players";
     public static final String RATES_FILE = "rates";
+    public static final String PLAYERS_FILE_NAME = "essentials-players.json";
+    public static final String RATES_FILE_NAME = "essentials-rates.json";
 
     private final ConfigFile<JsonObject> playersFile;
     private final ConfigFile<JsonObject> ratesFile;
@@ -59,7 +63,9 @@ public final class JsonPlayerDataStore implements PlayerDataStore, BufferedStore
     public static ConfigSpec<JsonObject> playersSpec() {
         SchemaMigrations.checkChain(SchemaMigrations.playersChain(), SchemaMigrations.PLAYERS_VERSION, PLAYERS_FILE);
         ConfigSpec.Builder<JsonObject> builder = ConfigSpec.of(MODID, PLAYERS_FILE, JsonObject.class)
+            .role(ConfigRoles.ESSENTIALS)
             .scope(ConfigScope.WORLD_STATE)
+            .format(ConfigFormat.JSON)
             .schemaVersion(SchemaMigrations.PLAYERS_VERSION);
         for (Migration migration : SchemaMigrations.playersChain()) {
             builder.migration(migration);
@@ -71,7 +77,9 @@ public final class JsonPlayerDataStore implements PlayerDataStore, BufferedStore
     public static ConfigSpec<JsonObject> ratesSpec() {
         SchemaMigrations.checkChain(SchemaMigrations.ratesChain(), SchemaMigrations.RATES_VERSION, RATES_FILE);
         ConfigSpec.Builder<JsonObject> builder = ConfigSpec.of(MODID, RATES_FILE, JsonObject.class)
+            .role(ConfigRoles.ESSENTIALS)
             .scope(ConfigScope.WORLD_STATE)
+            .format(ConfigFormat.JSON)
             .schemaVersion(SchemaMigrations.RATES_VERSION);
         for (Migration migration : SchemaMigrations.ratesChain()) {
             builder.migration(migration);
@@ -87,17 +95,17 @@ public final class JsonPlayerDataStore implements PlayerDataStore, BufferedStore
 
     @Override
     public Map<UUID, PlayerRecord> loadPlayers() {
-        LocationsCodec.DecodedPlayers decoded = codec.readPlayers(data(playersFile, PLAYERS_FILE), log);
+        LocationsCodec.DecodedPlayers decoded = codec.readPlayers(data(playersFile, PLAYERS_FILE_NAME), log);
         if (decoded.dropped() > 0) {
-            log.warn("{} record(s) in {}.json are unusable and were skipped", decoded.dropped(), PLAYERS_FILE);
+            log.warn("{} record(s) in {} are unusable and were skipped", decoded.dropped(), PLAYERS_FILE_NAME);
         }
         if (decoded.quarantine()
             .records() > 0) {
             log.warn(
-                "{} entry(ies) of {}.json stay in the file untouched until a human looks at them",
+                "{} entry(ies) of {} stay in the file untouched until a human looks at them",
                 decoded.quarantine()
                     .records(),
-                PLAYERS_FILE);
+                PLAYERS_FILE_NAME);
         }
         synchronized (lock) {
             quarantine = decoded.quarantine();
@@ -110,9 +118,9 @@ public final class JsonPlayerDataStore implements PlayerDataStore, BufferedStore
     @Override
     public Map<UUID, Map<String, Long>> loadCooldowns() {
         LocationsCodec.DecodedCooldowns decoded = codec
-            .readCooldowns(data(ratesFile, RATES_FILE), clock.getAsLong(), log);
+            .readCooldowns(data(ratesFile, RATES_FILE_NAME), clock.getAsLong(), log);
         if (decoded.dropped() > 0) {
-            log.warn("{} record(s) in {}.json are unusable and were skipped", decoded.dropped(), RATES_FILE);
+            log.warn("{} record(s) in {} are unusable and were skipped", decoded.dropped(), RATES_FILE_NAME);
         }
         synchronized (lock) {
             cooldowns.clear();
@@ -172,9 +180,9 @@ public final class JsonPlayerDataStore implements PlayerDataStore, BufferedStore
             dirty = false;
         }
         try {
-            codec.writePlayers(data(playersFile, PLAYERS_FILE), written, held);
+            codec.writePlayers(data(playersFile, PLAYERS_FILE_NAME), written, held);
             playersFile.save();
-            codec.writeCooldowns(data(ratesFile, RATES_FILE), stamps);
+            codec.writeCooldowns(data(ratesFile, RATES_FILE_NAME), stamps);
             ratesFile.save();
             return StoreResult.success();
         } catch (RuntimeException failure) {
@@ -195,7 +203,7 @@ public final class JsonPlayerDataStore implements PlayerDataStore, BufferedStore
     private static JsonObject data(ConfigFile<JsonObject> file, String name) {
         if (!file.loaded()) {
             throw new IllegalStateException(
-                name + ".json lives in the world folder and opens no earlier than FMLServerStartingEvent");
+                name + " lives in the world folder and opens no earlier than FMLServerStartingEvent");
         }
         return file.get();
     }

@@ -20,6 +20,7 @@ import org.junit.jupiter.api.io.TempDir;
 
 import com.google.gson.JsonObject;
 import com.mrleonardos.codecore.api.config.ConfigFile;
+import com.mrleonardos.codecore.api.config.ConfigSpec;
 import com.mrleonardos.codeessentials.api.EssentialsLimits;
 import com.mrleonardos.codeessentials.api.model.BackPoint;
 import com.mrleonardos.codeessentials.api.model.HomeRecord;
@@ -55,13 +56,13 @@ class JsonPlayerDataStoreTest {
     void firstRunCreatesBothFilesInTheWorldFolder() {
         store();
 
-        assertTrue(Files.isRegularFile(path(JsonPlayerDataStore.PLAYERS_FILE)));
-        assertTrue(Files.isRegularFile(path(JsonPlayerDataStore.RATES_FILE)));
+        assertTrue(Files.isRegularFile(path(JsonPlayerDataStore.playersSpec())));
+        assertTrue(Files.isRegularFile(path(JsonPlayerDataStore.ratesSpec())));
     }
 
     @Test
     void brokenPlayersFileGoesAsideAndTheModStartsEmpty() throws Exception {
-        Path players = path(JsonPlayerDataStore.PLAYERS_FILE);
+        Path players = path(JsonPlayerDataStore.playersSpec());
         Files.createDirectories(players.getParent());
         Files.write(players, Arrays.asList("{ \"players\": {"));
 
@@ -120,7 +121,7 @@ class JsonPlayerDataStoreTest {
                 .build());
         store.flush();
 
-        String text = new String(Files.readAllBytes(path(JsonPlayerDataStore.PLAYERS_FILE)), StandardCharsets.UTF_8);
+        String text = new String(Files.readAllBytes(path(JsonPlayerDataStore.playersSpec())), StandardCharsets.UTF_8);
         assertTrue(text.contains("not-a-uuid"), "нечитаемая запись обязана остаться в файле: " + text);
         assertTrue(text.contains(STEVE.toString()));
     }
@@ -136,8 +137,8 @@ class JsonPlayerDataStoreTest {
                 .build());
         store.flush();
 
-        String text = new String(Files.readAllBytes(path(JsonPlayerDataStore.RATES_FILE)), StandardCharsets.UTF_8);
-        JsonObject file = StubConfigService.Json.read(path(JsonPlayerDataStore.RATES_FILE));
+        String text = new String(Files.readAllBytes(path(JsonPlayerDataStore.ratesSpec())), StandardCharsets.UTF_8);
+        JsonObject file = StubConfigService.Json.read(path(JsonPlayerDataStore.ratesSpec()));
 
         assertTrue(text.contains("99000"), text);
         assertEquals(
@@ -182,13 +183,11 @@ class JsonPlayerDataStoreTest {
     private void write(JsonObject players) {
         JsonObject file = new JsonObject();
         file.add(LocationsCodec.PLAYERS, players);
-        StubConfigService.Json.write(path(JsonPlayerDataStore.PLAYERS_FILE), file);
+        StubConfigService.Json.write(path(JsonPlayerDataStore.playersSpec()), file);
     }
 
-    private Path path(String name) {
-        return root.resolve(StubConfigService.WORLD_DIRECTORY)
-            .resolve(JsonPlayerDataStore.MODID)
-            .resolve(name + ".json");
+    private Path path(ConfigSpec<JsonObject> spec) {
+        return StubConfigService.pathOf(root, spec);
     }
 
     private static final class BrokenFile implements ConfigFile<JsonObject> {

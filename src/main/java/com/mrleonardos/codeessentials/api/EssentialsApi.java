@@ -61,7 +61,7 @@ public final class EssentialsApi {
 
     /**
      * Зарегистрировать хранилище состояния игроков. Активным становится то, чьё имя указано в
-     * настройке {@code storage.playerProvider}.
+     * настройке {@code [storage] provider} главного файла линейки.
      *
      * @throws IllegalArgumentException если имя уже занято другим провайдером
      * @throws IllegalStateException    если реестр уже закрыт стартом сервера
@@ -76,7 +76,7 @@ public final class EssentialsApi {
         STORES.put(store.id(), store);
     }
 
-    /** Хранилище по имени из настройки {@code storage.playerProvider}. */
+    /** Хранилище по имени из настройки {@code [storage] provider} главного файла линейки. */
     public static synchronized Optional<PlayerDataStore> store(String id) {
         return Optional.ofNullable(STORES.get(Objects.requireNonNull(id, "id")));
     }
