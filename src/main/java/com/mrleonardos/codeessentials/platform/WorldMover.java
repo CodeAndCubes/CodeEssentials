@@ -43,30 +43,55 @@ final class WorldMover implements Mover {
     @Override
     public void move(TeleportJob job, Point landing, Report report) {
         UUID player = job.player();
+        Shift shift = new Shift();
+        CancelReason refusal;
         try {
-            if (!moves.online(player)) {
-                report.failed(CancelReason.DISCONNECTED);
-                return;
-            }
-            if (!moves.world(landing.dimension())) {
-                report.failed(CancelReason.DIMENSION_MISSING);
-                return;
-            }
-            moves.dismount(player);
-            moves.closeScreen(player);
-            if (!moves.chunks(landing)) {
-                report.failed(CancelReason.CHUNK_MISSING);
-                return;
-            }
-            if (moves.dimensionOf(player) != landing.dimension()) {
-                moves.transfer(player, landing);
-            }
-            moves.place(player, landing);
-            moves.settle(player);
-            report.done(landing);
+            refusal = apply(player, landing, shift);
         } catch (RuntimeException failure) {
+            if (shift.started) {
+                log.error(
+                    "Teleport {} broke after the player had already been shifted, the landing stands: {}",
+                    job,
+                    failure.toString(),
+                    failure);
+                report.done(landing);
+                return;
+            }
             log.error("Teleport {} broke on the way and the slot is free again: {}", job, failure.toString(), failure);
             report.failed(CancelReason.TIMEOUT);
+            return;
         }
+        if (refusal != null) {
+            report.failed(refusal);
+            return;
+        }
+        report.done(landing);
+    }
+
+    private CancelReason apply(UUID player, Point landing, Shift shift) {
+        if (!moves.online(player)) {
+            return CancelReason.DISCONNECTED;
+        }
+        if (!moves.world(landing.dimension())) {
+            return CancelReason.DIMENSION_MISSING;
+        }
+        moves.dismount(player);
+        moves.closeScreen(player);
+        if (!moves.chunks(landing)) {
+            return CancelReason.CHUNK_MISSING;
+        }
+        if (moves.dimensionOf(player) != landing.dimension()) {
+            shift.started = true;
+            moves.transfer(player, landing);
+        }
+        shift.started = true;
+        moves.place(player, landing);
+        moves.settle(player);
+        return null;
+    }
+
+    private static final class Shift {
+
+        private boolean started;
     }
 }

@@ -2,6 +2,7 @@ package com.mrleonardos.codeessentials.platform;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
@@ -89,13 +90,38 @@ class WorldMoverTest {
     }
 
     @Test
-    void aBrokenStepFreesTheSlotInsteadOfThrowing() {
+    void aBreakBeforeTheFirstWorldChangingStepFreesTheSlot() {
+        Steps steps = new Steps().at(0);
+        steps.breakChunks = true;
+
+        Answer answer = move(steps, OVERWORLD);
+
+        assertEquals(CancelReason.TIMEOUT, answer.reason);
+        assertNull(answer.landing, "игрок не сдвинулся, значит и приземления не было");
+        assertFalse(steps.done.contains("settle"), () -> steps.done.toString());
+    }
+
+    @Test
+    void aBreakAfterThePlayerHasMovedCountsAsALanding() {
+        Steps steps = new Steps().at(0);
+        steps.breakPlace = true;
+
+        Answer answer = move(steps, NETHER);
+
+        assertTrue(steps.done.contains("transfer -1"), () -> steps.done.toString());
+        assertNull(answer.reason, "перенос между мирами состоялся, отказывать нечем");
+        assertEquals(NETHER, answer.landing);
+    }
+
+    @Test
+    void aBreakInsideTheSameWorldStillCountsAsALanding() {
         Steps steps = new Steps().at(0);
         steps.breakPlace = true;
 
         Answer answer = move(steps, OVERWORLD);
 
-        assertEquals(CancelReason.TIMEOUT, answer.reason);
+        assertNull(answer.reason, "шаг, меняющий место игрока, уже начался: FAILED значил бы «не сдвинулся»");
+        assertEquals(OVERWORLD, answer.landing);
         assertFalse(steps.done.contains("settle"), () -> steps.done.toString());
     }
 
@@ -136,6 +162,7 @@ class WorldMoverTest {
         private boolean online = true;
         private boolean world = true;
         private boolean chunks = true;
+        private boolean breakChunks;
         private boolean breakPlace;
         private int dimension;
 
@@ -159,6 +186,9 @@ class WorldMoverTest {
         @Override
         public boolean chunks(Point landing) {
             done.add("chunks " + landing.dimension());
+            if (breakChunks) {
+                throw new IllegalStateException("the region file is locked");
+            }
             return chunks;
         }
 
