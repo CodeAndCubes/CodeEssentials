@@ -90,21 +90,21 @@ CodeCore, ноды выдаются её файлом; после установ
 ## Мета вместо чисел в конфиге
 
 Три значения берутся не нодой, а метой того же `PermissionService`. Меты нет или значение кривое:
-работает число из `config/codeessentials/config.json` и в лог уходит строка.
+работает число из настроек и в лог уходит строка.
 
 | Ключ | Что задаёт | Запасное значение | Потолок |
 |---|---|---|---|
-| `codeessentials.maxhomes` | сколько домов разрешено игроку | `homes.defaultMax` (3) | `limits.homesPerPlayer` (128) |
-| `codeessentials.warmup` | сколько секунд длится тёплая задержка | `teleport.warmupSeconds` (3) | `limits.warmupSeconds` (300) |
+| `codeessentials.maxhomes` | сколько домов разрешено игроку | `[essentials] homes` (3) | `limits.homesPerPlayer` (128) |
+| `codeessentials.warmup` | сколько секунд длится тёплая задержка | `[essentials] warmupSeconds` (3) | `limits.warmupSeconds` (300) |
 | `codeessentials.backdepth` | глубина стека `/back` | 1 | `limits.backDepth` (10) |
 
 Лимит домов неретроактивный: он читается в момент `/sethome` и запрещает только новое имя. Падение
 лимита оставляет уже поставленные дома на месте, а перезапись существующего дома лимит не тратит.
 
-## Вес в реестре сервисов ядра
+## Кто держит роль перемещений
 
-`config/codeessentials/config.json`, поле `servicePriority`: `BUILTIN`, `ADDON` или `OVERRIDE`,
-по умолчанию `ADDON`. Мод с большим весом забирает `TeleportService`, `HomeService`, `WarpService`,
-`SpawnService` и `BackService` у мода с меньшим. Непонятное значение заменяется на `ADDON` с записью
-в лог. Вес читается один раз при загрузке мода: `/essentials reload` его не меняет, нужен
-перезапуск сервера.
+`config/code/config.toml`, секция `[owners]`, ключ `essentials`: `auto` отдаёт роль нашему моду,
+`off` не отдаёт никому, имя отдаёт названному владельцу. Победитель получает `TeleportService`,
+`HomeService`, `WarpService`, `SpawnService` и `BackService` в реестре ядра, вес выбирает само ядро.
+Незнакомое имя уходит по правилу `auto` с предупреждением в лог. Ключ читается один раз при старте:
+`/essentials reload` его не меняет, нужен перезапуск сервера, и ответ команды об этом говорит.
