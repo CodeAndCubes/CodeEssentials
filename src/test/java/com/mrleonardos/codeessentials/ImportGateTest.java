@@ -26,6 +26,13 @@ class ImportGateTest {
     }
 
     @Test
+    void eventListenersArePublic() throws IOException {
+        List<String> hidden = gate().hiddenListeners();
+
+        assertTrue(hidden.isEmpty(), () -> "классы с @SubscribeEvent обязаны быть public: " + hidden);
+    }
+
+    @Test
     void gateNoticesAForbiddenReference() throws IOException {
         List<String> found = gate().scan(PackageGate.foreignSample());
 
