@@ -12,7 +12,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicLong;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -34,8 +37,19 @@ import com.mrleonardos.codeessentials.api.teleport.TeleportCause;
 import com.mrleonardos.codeessentials.api.teleport.TeleportJob;
 import com.mrleonardos.codeessentials.api.teleport.TeleportRequest;
 import com.mrleonardos.codeessentials.api.teleport.TeleportService;
+import com.mrleonardos.codeessentials.internal.EssentialsSettings;
+import com.mrleonardos.codeessentials.internal.engine.Cooldowns;
+import com.mrleonardos.codeessentials.internal.engine.EngineFixtures;
+import com.mrleonardos.codeessentials.internal.engine.EngineRules;
+import com.mrleonardos.codeessentials.internal.engine.SafeSpotFinder;
+import com.mrleonardos.codeessentials.internal.engine.TeleportEngine;
+import com.mrleonardos.codeessentials.internal.service.BackServiceImpl;
+import com.mrleonardos.codeessentials.internal.service.StateWriter;
+import com.mrleonardos.codeessentials.internal.store.SingleWriterImpl;
 
 class EssentialsApiTest {
+
+    private static final Logger LOG = LogManager.getLogger("codeessentials-test");
 
     @BeforeEach
     @AfterEach
@@ -121,6 +135,59 @@ class EssentialsApiTest {
         assertSame(held, EssentialsApi.teleports());
         assertThrows(IllegalStateException.class, () -> EssentialsApi.homes());
         assertThrows(NullPointerException.class, () -> EssentialsApi.install(null, new StubEvents()));
+    }
+
+    @Test
+    void aForeignModMeetsTheSameCooldownGateThroughTheDoor() {
+        AtomicLong clock = new AtomicLong(1_000L);
+        EngineFixtures.FakeWorlds worlds = new EngineFixtures.FakeWorlds();
+        worlds.world(0)
+            .plate(63, -10, 10);
+        worlds.standing(EngineFixtures.STEVE, Point.of(0, 0.5D, 64.0D, 0.5D));
+        EngineRules rules = EngineRules.builder()
+            .warmupSeconds(0)
+            .cooldown(TeleportCause.API, 30)
+            .build();
+        SingleWriterImpl writer = EngineFixtures.writer(clock::get);
+        EngineFixtures.FakeRights rights = new EngineFixtures.FakeRights();
+        Cooldowns cooldowns = new Cooldowns(writer, rights, () -> rules, clock::get);
+        TeleportEngine engine = new TeleportEngine(
+            () -> rules,
+            worlds,
+            rights,
+            new SafeSpotFinder(),
+            new EngineFixtures.FakeMover(),
+            cooldowns,
+            new BackServiceImpl(EssentialsSettings::defaults, rights, new StateWriter(writer), LOG),
+            new EngineFixtures.FakeEvents(),
+            new EngineFixtures.TestScheduler(),
+            clock::get,
+            LOG);
+        Map<Class<?>, Object> registry = new HashMap<>();
+        registry.put(TeleportService.class, engine);
+        EssentialsApi.install(new MapLookup(registry), new StubEvents());
+
+        assertEquals(TeleportJob.State.DONE, ask().state());
+
+        TeleportJob second = ask();
+
+        assertEquals(
+            CancelReason.COOLDOWN,
+            second.reason()
+                .get(),
+            "чужой мод идёт тем же конвейером, включая кулдауны");
+        assertEquals(TeleportJob.State.CANCELLED, second.state());
+
+        clock.set(clock.get() + 31_000L);
+
+        assertEquals(TeleportJob.State.DONE, ask().state());
+    }
+
+    private static TeleportJob ask() {
+        return EssentialsApi.teleports()
+            .request(
+                TeleportRequest.builder(EngineFixtures.STEVE, Point.of(0, 5.5D, 64.0D, 5.5D), TeleportCause.API)
+                    .build());
     }
 
     private static final class MapLookup implements EssentialsApi.Lookup {

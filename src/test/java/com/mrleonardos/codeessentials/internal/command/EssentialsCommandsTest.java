@@ -602,11 +602,49 @@ class EssentialsCommandsTest {
     void bypassNodeSkipsTheCooldown() {
         teleports.cooldowns.put(TeleportCause.HOME, Long.valueOf(90_000L));
         homes.owned.put("home", HomeRecord.of("home", HERE, 1L));
-        subjects.nodes.add(Nodes.BYPASS_COOLDOWN);
+        teleports.bypassing.add(STEVE);
 
         execute(root(CommandRoots.HOME), new TestCommandContext());
 
-        assertEquals(1, teleports.asked.size());
+        assertEquals(1, teleports.asked.size(), "обход спрашивают у сервиса, а не второй раз у отправителя");
+    }
+
+    @Test
+    void oneCooldownRefusalIsSaidExactlyOnce() {
+        homes.owned.put("home", HomeRecord.of("home", HERE, 1L));
+        teleports.cooldowns.put(TeleportCause.HOME, Long.valueOf(90_000L));
+
+        TestCommandContext context = new TestCommandContext();
+        execute(root(CommandRoots.HOME), context);
+
+        assertEquals(
+            1,
+            context.sent()
+                .size(),
+            () -> "об одном отказе говорят один раз: " + context.sent());
+        assertTrue(
+            context.last()
+                .is(EssentialsMessages.ERROR_COOLDOWN));
+        assertTrue(teleports.asked.isEmpty(), "ранняя проверка не даёт движку повода отказать второй раз");
+    }
+
+    @Test
+    void aCooldownRefusalFromTheEngineIsAlsoSaidOnce() {
+        homes.owned.put("home", HomeRecord.of("home", HERE, 1L));
+        teleports.outcome = TeleportJob.State.CANCELLED;
+        teleports.reason = CancelReason.COOLDOWN;
+
+        TestCommandContext context = new TestCommandContext();
+        execute(root(CommandRoots.HOME), context);
+
+        assertEquals(
+            1,
+            context.sent()
+                .size(),
+            () -> "ранняя проверка промолчала, значит говорит движок, и тоже один раз: " + context.sent());
+        assertTrue(
+            context.last()
+                .is(EssentialsMessages.CANCEL_COOLDOWN));
     }
 
     @Test

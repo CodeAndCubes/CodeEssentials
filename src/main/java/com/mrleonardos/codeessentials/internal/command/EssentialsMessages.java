@@ -100,6 +100,7 @@ public final class EssentialsMessages {
     public static final String CANCEL_DISCONNECTED = "codeessentials.cancel.disconnected";
     public static final String CANCEL_VETOED = "codeessentials.cancel.vetoed";
     public static final String CANCEL_BY_COMMAND = "codeessentials.cancel.by_command";
+    public static final String CANCEL_COOLDOWN = "codeessentials.cancel.cooldown";
 
     public static final String FAILED_UNSAFE = "codeessentials.failed.unsafe";
     public static final String FAILED_CHUNK_MISSING = "codeessentials.failed.chunk_missing";

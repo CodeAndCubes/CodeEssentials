@@ -130,6 +130,7 @@ final class CommandTestStubs {
 
         final List<TeleportRequest> asked = new ArrayList<>();
         final Map<TeleportCause, Long> cooldowns = new EnumMap<>(TeleportCause.class);
+        final Set<UUID> bypassing = new LinkedHashSet<>();
         final List<TeleportJob> running = new ArrayList<>();
 
         TeleportJob.State outcome = TeleportJob.State.WARMUP;
@@ -185,7 +186,7 @@ final class CommandTestStubs {
         @Override
         public long cooldownRemaining(UUID player, TeleportCause cause) {
             Long left = cooldowns.get(cause);
-            return left == null ? 0L : left.longValue();
+            return left == null || bypassing.contains(player) ? 0L : left.longValue();
         }
 
         @Override

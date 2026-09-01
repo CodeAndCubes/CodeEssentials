@@ -929,9 +929,6 @@ public final class EssentialsCommands {
     }
 
     private boolean waiting(CommandContext context, UUID player, TeleportCause cause) {
-        if (subjects.allowed(context, Nodes.BYPASS_COOLDOWN)) {
-            return false;
-        }
         long left = teleports.get()
             .cooldownRemaining(player, cause);
         if (left <= 0L) {

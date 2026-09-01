@@ -589,6 +589,59 @@ class TeleportEngineTest {
     }
 
     @Test
+    void everyCauseThatChargesACooldownIsAlsoRefusedByIt() {
+        for (TeleportCause cause : TeleportCause.values()) {
+            if (!cause.chargesCooldown()) {
+                continue;
+            }
+            build(charging(30));
+            cooldowns.charge(EngineFixtures.STEVE, cause);
+
+            TeleportJob job = ask(cause, HOME);
+
+            assertEquals(TeleportJob.State.CANCELLED, job.state(), cause.key());
+            assertEquals(
+                CancelReason.COOLDOWN,
+                job.reason()
+                    .get(),
+                cause.key());
+            assertEquals(0, mover.moves(), cause.key());
+            assertTrue(engine.idle(), () -> "отказ по кулдауну слот не занимает: " + cause.key());
+        }
+    }
+
+    @Test
+    void aCauseWithoutACooldownIsNeverStoppedByOne() {
+        build(charging(30));
+        ask(TeleportCause.HOME, HOME);
+
+        assertTrue(engine.cooldownRemaining(EngineFixtures.STEVE, TeleportCause.HOME) > 0L);
+        assertEquals(
+            TeleportJob.State.DONE,
+            ask(TeleportCause.ADMIN, SPAWN).state(),
+            "админский перенос кулдауна не списывает, значит и ждать ему нечего");
+        assertEquals(
+            TeleportJob.State.WARMUP,
+            ask(TeleportCause.RESPAWN, SPAWN).state(),
+            "цель респауна ждёт события, а не кулдауна");
+    }
+
+    @Test
+    void theBypassNodeOpensTheGateOfTheEngine() {
+        build(charging(30));
+        ask(TeleportCause.HOME, HOME);
+
+        assertEquals(
+            CancelReason.COOLDOWN,
+            ask(TeleportCause.HOME, HOME).reason()
+                .get());
+
+        rights.allow(EngineFixtures.STEVE, Cooldowns.BYPASS_NODE);
+
+        assertEquals(TeleportJob.State.DONE, ask(TeleportCause.HOME, HOME).state());
+    }
+
+    @Test
     void jobsReportBothTheActiveAndTheWaitingWork() {
         mover.holdOn();
         ask(TeleportCause.ADMIN, HOME);
@@ -630,6 +683,17 @@ class TeleportEngineTest {
             .cooldown(TeleportCause.HOME, 30)
             .cooldown(TeleportCause.SPAWN, 15)
             .build();
+    }
+
+    private static EngineRules charging(int seconds) {
+        EngineRules.Builder builder = EngineRules.builder()
+            .warmupSeconds(0);
+        for (TeleportCause cause : TeleportCause.values()) {
+            if (cause.chargesCooldown()) {
+                builder.cooldown(cause, seconds);
+            }
+        }
+        return builder.build();
     }
 
     private void build(EngineRules rules) {

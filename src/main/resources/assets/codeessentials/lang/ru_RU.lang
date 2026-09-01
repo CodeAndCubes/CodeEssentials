@@ -93,6 +93,7 @@ codeessentials.cancel.dead=Перенос отменён: вы погибли
 codeessentials.cancel.disconnected=Перенос отменён: выход с сервера
 codeessentials.cancel.vetoed=Перенос отменён: сюда нельзя
 codeessentials.cancel.by_command=Перенос отменён
+codeessentials.cancel.cooldown=Перенос отменён: по этой причине переноситься ещё рано
 
 codeessentials.failed.unsafe=Приземляться некуда: рядом с точкой нет безопасного места
 codeessentials.failed.chunk_missing=Район цели не загружен, генерация выключена

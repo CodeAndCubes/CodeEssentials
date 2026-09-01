@@ -9,6 +9,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import com.mrleonardos.codeessentials.api.model.Point;
+import com.mrleonardos.codeessentials.api.teleport.CancelReason;
 import com.mrleonardos.codeessentials.api.teleport.TeleportCause;
 import com.mrleonardos.codeessentials.internal.command.TeleportRequests;
 import com.mrleonardos.codeessentials.internal.engine.Cooldowns;
@@ -147,10 +148,11 @@ class RequestBridgeTest {
     }
 
     @Test
-    void aCarriedPlayerOnCooldownComesBackAsAnAnswerWithTheRemainder() {
+    void aCooldownRefusalFromTheEngineComesBackAsAnAnswerWithTheRemainder() {
         build(cooling(30));
         bridge.send(STEVE, "Steve", ALEX, "Alex", false);
         cooldowns.charge(STEVE, TeleportCause.TPA);
+        teleports.refusal = CancelReason.COOLDOWN;
 
         TeleportRequests.Reply reply = bridge.accept(ALEX, "Steve");
 
@@ -158,12 +160,18 @@ class RequestBridgeTest {
         assertEquals(
             STEVE,
             reply.moved()
-                .get());
+                .get(),
+            "ждать велят тому, кого несут");
         assertEquals("Steve", reply.subject());
         assertTrue(reply.waitMillis() > 0L, () -> "остаток обязан быть положительным: " + reply.waitMillis());
-        assertTrue(
-            teleports.asked()
-                .isEmpty());
+
+        teleports.refusal = null;
+
+        assertEquals(
+            TeleportRequests.Answer.ACCEPTED,
+            bridge.accept(ALEX, "Steve")
+                .answer(),
+            "отказ по кулдауну не съедает просьбу");
     }
 
     @Test

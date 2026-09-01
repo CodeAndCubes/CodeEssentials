@@ -9,12 +9,13 @@ import com.mrleonardos.codeessentials.api.store.ChangeBatch;
 import com.mrleonardos.codeessentials.api.store.PlayerDataStore;
 import com.mrleonardos.codeessentials.api.store.StoreResult;
 import com.mrleonardos.codeessentials.api.teleport.TeleportCause;
+import com.mrleonardos.codeessentials.internal.command.Nodes;
 import com.mrleonardos.codeessentials.internal.store.EssentialsState;
 import com.mrleonardos.codeessentials.internal.store.SingleWriter;
 
 public final class Cooldowns {
 
-    public static final String BYPASS_NODE = "codeessentials.bypass.cooldown";
+    public static final String BYPASS_NODE = Nodes.BYPASS_COOLDOWN;
 
     private final SingleWriter writer;
     private final PlayerRights rights;

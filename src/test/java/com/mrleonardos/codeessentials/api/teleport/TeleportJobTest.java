@@ -148,7 +148,7 @@ class TeleportJobTest {
 
     @Test
     void reasonsSplitIntoCancelledAndFailed() {
-        assertEquals(11, CancelReason.values().length);
+        assertEquals(12, CancelReason.values().length);
 
         for (CancelReason reason : CancelReason.values()) {
             assertTrue(reason.state() == TeleportJob.State.CANCELLED || reason.state() == TeleportJob.State.FAILED);
@@ -162,6 +162,7 @@ class TeleportJobTest {
         assertFalse(CancelReason.SUPERSEDED.failure());
         assertFalse(CancelReason.VETOED.failure());
         assertFalse(CancelReason.BY_COMMAND.failure());
+        assertFalse(CancelReason.COOLDOWN.failure(), "кулдаун это правило мода, а не помеха от мира");
         assertTrue(CancelReason.UNSAFE.failure());
         assertTrue(CancelReason.CHUNK_MISSING.failure());
         assertTrue(CancelReason.DIMENSION_MISSING.failure());

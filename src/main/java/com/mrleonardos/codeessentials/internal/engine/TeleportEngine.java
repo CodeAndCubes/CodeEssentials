@@ -70,6 +70,9 @@ public final class TeleportEngine implements TeleportService {
         Objects.requireNonNull(request, "request");
         UUID player = request.player();
         TeleportJob job = TeleportJob.starting(ids.incrementAndGet(), request);
+        if (cooldowns.remaining(player, request.cause()) > 0L) {
+            return refuse(job, CancelReason.COOLDOWN);
+        }
         Optional<BlockView> view = world.view(
             request.destination()
                 .dimension());

@@ -93,6 +93,7 @@ codeessentials.cancel.dead=Teleport cancelled: you died
 codeessentials.cancel.disconnected=Teleport cancelled: you left the server
 codeessentials.cancel.vetoed=Teleport cancelled: this spot is off limits
 codeessentials.cancel.by_command=Teleport cancelled
+codeessentials.cancel.cooldown=Teleport cancelled: too early for a move of this kind
 
 codeessentials.failed.unsafe=Nowhere to land: no safe spot near the target
 codeessentials.failed.chunk_missing=The target area is not loaded and generation is off

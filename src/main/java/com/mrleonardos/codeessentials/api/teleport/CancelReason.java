@@ -37,6 +37,15 @@ public enum CancelReason {
     /** Работу сняли командой {@code /ecancel}. */
     BY_COMMAND(TeleportJob.State.CANCELLED),
 
+    /**
+     * Кулдаун причины ещё не истёк.
+     *
+     * <p>
+     * Отказ принимает сам движок, поэтому он одинаков для команды игрока, принятой tpa-просьбы и
+     * прямого вызова из чужого мода. Нода {@code codeessentials.bypass.cooldown} снимает его.
+     */
+    COOLDOWN(TeleportJob.State.CANCELLED),
+
     /** Рядом с целью нет безопасного места. */
     UNSAFE(TeleportJob.State.FAILED),
 

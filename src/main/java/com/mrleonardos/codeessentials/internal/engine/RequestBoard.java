@@ -17,6 +17,7 @@ import java.util.function.Supplier;
 
 import com.mrleonardos.codecore.api.util.Scheduler;
 import com.mrleonardos.codeessentials.api.model.Point;
+import com.mrleonardos.codeessentials.api.teleport.CancelReason;
 import com.mrleonardos.codeessentials.api.teleport.TeleportCause;
 import com.mrleonardos.codeessentials.api.teleport.TeleportJob;
 import com.mrleonardos.codeessentials.api.teleport.TeleportRequest;
@@ -123,11 +124,6 @@ public final class RequestBoard {
         Ticket ticket = picked.ticket()
             .get();
         UUID moved = ticket.moved();
-        long cooling = cooldowns.remaining(moved, TeleportCause.TPA);
-        if (cooling > 0L) {
-            restore(ticket);
-            return Answer.cooling(ticket, cooling);
-        }
         Optional<Point> destination = world.position(ticket.host());
         if (!destination.isPresent()) {
             return Answer.plain(Outcome.OFFLINE);
@@ -136,6 +132,11 @@ public final class RequestBoard {
             TeleportRequest.builder(moved, destination.get(), TeleportCause.TPA)
                 .actor(ticket.toName() == null ? target.toString() : ticket.toName())
                 .build());
+        if (job.reason()
+            .orElse(null) == CancelReason.COOLDOWN) {
+            restore(ticket);
+            return Answer.cooling(ticket, cooldowns.remaining(moved, TeleportCause.TPA));
+        }
         return Answer.accepted(ticket, job);
     }
 

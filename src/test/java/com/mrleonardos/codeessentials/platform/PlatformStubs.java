@@ -100,6 +100,8 @@ final class PlatformStubs {
         private final List<TeleportRequest> asked = new ArrayList<>();
         private final AtomicLong ids = new AtomicLong();
 
+        CancelReason refusal;
+
         List<TeleportRequest> asked() {
             return asked;
         }
@@ -107,7 +109,8 @@ final class PlatformStubs {
         @Override
         public TeleportJob request(TeleportRequest request) {
             asked.add(request);
-            return TeleportJob.starting(ids.incrementAndGet(), request);
+            TeleportJob job = TeleportJob.starting(ids.incrementAndGet(), request);
+            return refusal == null ? job : job.stopped(refusal);
         }
 
         @Override

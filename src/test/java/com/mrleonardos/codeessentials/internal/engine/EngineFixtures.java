@@ -29,16 +29,16 @@ import com.mrleonardos.codeessentials.internal.store.MemoryPlayerDataStore;
 import com.mrleonardos.codeessentials.internal.store.SingleWriter;
 import com.mrleonardos.codeessentials.internal.store.SingleWriterImpl;
 
-final class EngineFixtures {
+public final class EngineFixtures {
 
-    static final UUID STEVE = UUID.fromString("00000000-0000-0000-0000-000000000001");
-    static final UUID ALEX = UUID.fromString("00000000-0000-0000-0000-000000000002");
-    static final UUID NOTCH = UUID.fromString("00000000-0000-0000-0000-000000000003");
-    static final UUID HEROBRINE = UUID.fromString("00000000-0000-0000-0000-000000000004");
+    public static final UUID STEVE = UUID.fromString("00000000-0000-0000-0000-000000000001");
+    public static final UUID ALEX = UUID.fromString("00000000-0000-0000-0000-000000000002");
+    public static final UUID NOTCH = UUID.fromString("00000000-0000-0000-0000-000000000003");
+    public static final UUID HEROBRINE = UUID.fromString("00000000-0000-0000-0000-000000000004");
 
     private EngineFixtures() {}
 
-    static SingleWriterImpl writer(LongSupplier clock) {
+    public static SingleWriterImpl writer(LongSupplier clock) {
         return writer(new MemoryPlayerDataStore.Medium(), clock);
     }
 
@@ -53,7 +53,7 @@ final class EngineFixtures {
         return writer;
     }
 
-    static final class FakeWorld implements BlockView {
+    public static final class FakeWorld implements BlockView {
 
         private final Map<String, BlockSample> blocks = new HashMap<>();
         private final Set<String> unloaded = new HashSet<>();
@@ -79,7 +79,7 @@ final class EngineFixtures {
             return put(x, y, z, BlockSample.SOLID);
         }
 
-        FakeWorld plate(int y, int from, int to) {
+        public FakeWorld plate(int y, int from, int to) {
             for (int x = from; x <= to; x++) {
                 for (int z = from; z <= to; z++) {
                     floor(x, y, z);
@@ -130,16 +130,16 @@ final class EngineFixtures {
         }
     }
 
-    static final class FakeWorlds implements WorldAccess {
+    public static final class FakeWorlds implements WorldAccess {
 
         private final Map<Integer, FakeWorld> worlds = new LinkedHashMap<>();
         private final Map<UUID, Point> positions = new LinkedHashMap<>();
 
-        FakeWorld world(int dimension) {
+        public FakeWorld world(int dimension) {
             return worlds.computeIfAbsent(Integer.valueOf(dimension), FakeWorld::new);
         }
 
-        void standing(UUID player, Point point) {
+        public void standing(UUID player, Point point) {
             positions.put(player, point);
         }
 
@@ -158,12 +158,12 @@ final class EngineFixtures {
         }
     }
 
-    static final class FakeRights implements PlayerRights, PlayerMeta {
+    public static final class FakeRights implements PlayerRights, PlayerMeta {
 
         private final Set<String> nodes = new HashSet<>();
         private final Map<String, String> values = new HashMap<>();
 
-        void allow(UUID player, String node) {
+        public void allow(UUID player, String node) {
             nodes.add(player + "|" + node);
         }
 
@@ -189,7 +189,7 @@ final class EngineFixtures {
         }
     }
 
-    static final class MemoryWriter implements SingleWriter {
+    public static final class MemoryWriter implements SingleWriter {
 
         private EssentialsState state = EssentialsState.empty();
 
@@ -213,7 +213,7 @@ final class EngineFixtures {
         public void flush() {}
     }
 
-    static final class FakeMover implements Mover {
+    public static final class FakeMover implements Mover {
 
         private final List<Held> held = new ArrayList<>();
 
@@ -273,7 +273,7 @@ final class EngineFixtures {
         }
     }
 
-    static final class TestScheduler implements Scheduler {
+    public static final class TestScheduler implements Scheduler {
 
         private final List<Runnable> queued = new ArrayList<>();
 
@@ -300,7 +300,7 @@ final class EngineFixtures {
         }
     }
 
-    static final class FakeEvents implements TeleportEvents {
+    public static final class FakeEvents implements TeleportEvents {
 
         private final List<Listener> listeners = new ArrayList<>();
 
@@ -320,7 +320,7 @@ final class EngineFixtures {
         }
     }
 
-    static final class Watcher implements TeleportEvents.Listener {
+    public static final class Watcher implements TeleportEvents.Listener {
 
         private final EssentialsEvents.Kind kind;
         private final List<TeleportJob> started = new ArrayList<>();
