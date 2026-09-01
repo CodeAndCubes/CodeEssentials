@@ -20,7 +20,8 @@ import org.junit.jupiter.api.io.TempDir;
 
 import com.google.gson.JsonObject;
 import com.mrleonardos.codecore.api.config.ConfigFile;
-import com.mrleonardos.codecore.api.config.ConfigSpec;
+import com.mrleonardos.codecore.api.config.ConfigService;
+import com.mrleonardos.codeessentials.TestConfigs;
 import com.mrleonardos.codeessentials.api.EssentialsLimits;
 import com.mrleonardos.codeessentials.api.model.BackPoint;
 import com.mrleonardos.codeessentials.api.model.HomeRecord;
@@ -40,7 +41,7 @@ class JsonPlayerDataStoreTest {
 
     @Test
     void worldStateIsUnreachableBeforeTheWorldIsBound() {
-        StubConfigService configs = new StubConfigService(root);
+        ConfigService configs = TestConfigs.of(root);
         JsonPlayerDataStore store = JsonPlayerDataStore.create(configs, EssentialsLimits.defaults(), clock::get, LOG);
 
         IllegalStateException early = assertThrows(IllegalStateException.class, store::loadPlayers);
@@ -56,13 +57,13 @@ class JsonPlayerDataStoreTest {
     void firstRunCreatesBothFilesInTheWorldFolder() {
         store();
 
-        assertTrue(Files.isRegularFile(path(JsonPlayerDataStore.playersSpec())));
-        assertTrue(Files.isRegularFile(path(JsonPlayerDataStore.ratesSpec())));
+        assertTrue(Files.isRegularFile(path(JsonPlayerDataStore.PLAYERS_FILE_NAME)));
+        assertTrue(Files.isRegularFile(path(JsonPlayerDataStore.RATES_FILE_NAME)));
     }
 
     @Test
     void brokenPlayersFileGoesAsideAndTheModStartsEmpty() throws Exception {
-        Path players = path(JsonPlayerDataStore.playersSpec());
+        Path players = path(JsonPlayerDataStore.PLAYERS_FILE_NAME);
         Files.createDirectories(players.getParent());
         Files.write(players, Arrays.asList("{ \"players\": {"));
 
@@ -121,7 +122,9 @@ class JsonPlayerDataStoreTest {
                 .build());
         store.flush();
 
-        String text = new String(Files.readAllBytes(path(JsonPlayerDataStore.playersSpec())), StandardCharsets.UTF_8);
+        String text = new String(
+            Files.readAllBytes(path(JsonPlayerDataStore.PLAYERS_FILE_NAME)),
+            StandardCharsets.UTF_8);
         assertTrue(text.contains("not-a-uuid"), "нечитаемая запись обязана остаться в файле: " + text);
         assertTrue(text.contains(STEVE.toString()));
     }
@@ -137,8 +140,8 @@ class JsonPlayerDataStoreTest {
                 .build());
         store.flush();
 
-        String text = new String(Files.readAllBytes(path(JsonPlayerDataStore.ratesSpec())), StandardCharsets.UTF_8);
-        JsonObject file = StubConfigService.Json.read(path(JsonPlayerDataStore.ratesSpec()));
+        String text = new String(Files.readAllBytes(path(JsonPlayerDataStore.RATES_FILE_NAME)), StandardCharsets.UTF_8);
+        JsonObject file = TestConfigs.readJson(path(JsonPlayerDataStore.RATES_FILE_NAME));
 
         assertTrue(text.contains("99000"), text);
         assertEquals(
@@ -174,20 +177,21 @@ class JsonPlayerDataStoreTest {
     }
 
     private JsonPlayerDataStore store() {
-        StubConfigService configs = new StubConfigService(root);
+        ConfigService configs = TestConfigs.of(root);
         JsonPlayerDataStore store = JsonPlayerDataStore.create(configs, EssentialsLimits.defaults(), clock::get, LOG);
-        configs.bindWorld();
+        TestConfigs.attachWorld(configs, root.resolve(TestConfigs.WORLD));
         return store;
     }
 
     private void write(JsonObject players) {
         JsonObject file = new JsonObject();
         file.add(LocationsCodec.PLAYERS, players);
-        StubConfigService.Json.write(path(JsonPlayerDataStore.playersSpec()), file);
+        TestConfigs.writeJson(path(JsonPlayerDataStore.PLAYERS_FILE_NAME), file);
     }
 
-    private Path path(ConfigSpec<JsonObject> spec) {
-        return StubConfigService.pathOf(root, spec);
+    private Path path(String fileName) {
+        return TestConfigs.worldState(root)
+            .resolve(fileName);
     }
 
     private static final class BrokenFile implements ConfigFile<JsonObject> {

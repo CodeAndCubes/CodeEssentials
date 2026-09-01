@@ -9,10 +9,10 @@ import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-import com.google.gson.JsonObject;
+import com.mrleonardos.codecore.api.config.ConfigService;
+import com.mrleonardos.codeessentials.TestConfigs;
 import com.mrleonardos.codeessentials.api.EssentialsLimits;
 import com.mrleonardos.codeessentials.api.teleport.TeleportCause;
-import com.mrleonardos.codeessentials.internal.store.StubConfigService;
 
 class SharedSettingsTest {
 
@@ -92,19 +92,20 @@ class SharedSettingsTest {
 
     @Test
     void theRoleAsksForItsOwnStorageAndAudit(@TempDir Path root) {
-        StubConfigService configs = new StubConfigService(root);
-        JsonObject storage = new JsonObject();
-        storage.addProperty("provider", "sql");
-        storage.addProperty("autosaveSeconds", Integer.valueOf(120));
-        JsonObject own = new JsonObject();
-        own.addProperty("autosaveSeconds", Integer.valueOf(5));
-        storage.add("essentials", own);
-        JsonObject audit = new JsonObject();
-        audit.addProperty("logChanges", Boolean.FALSE);
-        configs.mainJson()
-            .add("storage", storage);
-        configs.mainJson()
-            .add("audit", audit);
+        TestConfigs.writeMain(
+            root,
+            "schemaVersion = 1",
+            "",
+            "[storage]",
+            "provider = \"sql\"",
+            "autosaveSeconds = 120",
+            "",
+            "[storage.essentials]",
+            "autosaveSeconds = 5",
+            "",
+            "[audit]",
+            "logChanges = false");
+        ConfigService configs = TestConfigs.of(root);
 
         SharedSettings shared = SharedSettings.of(configs, new EssentialsSection());
 

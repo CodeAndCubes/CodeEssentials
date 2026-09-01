@@ -5,11 +5,9 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -22,6 +20,8 @@ import com.mrleonardos.codecore.api.adapter.RoleOwnerKind;
 import com.mrleonardos.codecore.api.adapter.RoleServices;
 import com.mrleonardos.codecore.api.adapter.RoleSpec;
 import com.mrleonardos.codecore.api.config.ConfigRoles;
+import com.mrleonardos.codecore.api.config.ConfigService;
+import com.mrleonardos.codeessentials.TestConfigs;
 import com.mrleonardos.codeessentials.api.manage.BackService;
 import com.mrleonardos.codeessentials.api.manage.HomeService;
 import com.mrleonardos.codeessentials.api.manage.SpawnService;
@@ -29,7 +29,6 @@ import com.mrleonardos.codeessentials.api.manage.WarpService;
 import com.mrleonardos.codeessentials.api.teleport.TeleportService;
 import com.mrleonardos.codeessentials.internal.service.WarpsFile;
 import com.mrleonardos.codeessentials.internal.store.JsonPlayerDataStore;
-import com.mrleonardos.codeessentials.internal.store.StubConfigService;
 
 class EssentialsRoleTest {
 
@@ -73,10 +72,9 @@ class EssentialsRoleTest {
 
     @Test
     void aClaimThatHasNotWonTouchesNoFileOfItsOwn(@TempDir Path root) throws IOException {
-        StubConfigService configs = new StubConfigService(root);
-        Path warps = StubConfigService.pathOf(root, WarpsFile.spec());
-        Files.createDirectories(warps.getParent());
-        Files.write(warps, Collections.singletonList("{ \"warps\": {} }"), StandardCharsets.UTF_8);
+        ConfigService configs = TestConfigs.of(root);
+        Path warps = warpsFile(root);
+        TestConfigs.write(warps, "schemaVersion = 1", "", "[warps.shop]", "location = \"0,1.0,64.0,2.0\"");
         long written = Files.getLastModifiedTime(warps)
             .toMillis();
         AtomicInteger built = new AtomicInteger();
@@ -90,17 +88,14 @@ class EssentialsRoleTest {
             Files.getLastModifiedTime(warps)
                 .toMillis(),
             "существующий файл роли не тронут");
-        assertFalse(
-            Files.exists(StubConfigService.pathOf(root, EssentialsSettings.spec())),
-            "своих настроек мод не заводит");
-        assertFalse(
-            Files.exists(StubConfigService.pathOf(root, JsonPlayerDataStore.playersSpec())),
-            "файла игроков нет");
+        assertFalse(Files.exists(settingsFile(root)), "своих настроек мод не заводит");
+        assertFalse(Files.exists(playersFile(root)), "файла игроков нет");
     }
 
     @Test
     void theWinnerOfTheRoleOpensItsFiles(@TempDir Path root) {
-        StubConfigService configs = new StubConfigService(root).bindWorld();
+        ConfigService configs = TestConfigs.of(root);
+        TestConfigs.attachWorld(configs, root.resolve(TestConfigs.WORLD));
         AtomicInteger built = new AtomicInteger();
         EssentialsClaim claim = new EssentialsClaim(() -> open(configs, built));
 
@@ -111,12 +106,27 @@ class EssentialsRoleTest {
                 .isEmpty(),
             "заявка отдаёт ядру ровно то, что собрала");
         assertEquals(1, built.get());
-        assertTrue(Files.exists(StubConfigService.pathOf(root, EssentialsSettings.spec())));
-        assertTrue(Files.exists(StubConfigService.pathOf(root, WarpsFile.spec())));
-        assertTrue(Files.exists(StubConfigService.pathOf(root, JsonPlayerDataStore.playersSpec())));
+        assertTrue(Files.exists(settingsFile(root)));
+        assertTrue(Files.exists(warpsFile(root)));
+        assertTrue(Files.exists(playersFile(root)));
     }
 
-    private static RoleServices open(StubConfigService configs, AtomicInteger built) {
+    private static Path settingsFile(Path root) {
+        return TestConfigs.essentials(root)
+            .resolve("essentials.toml");
+    }
+
+    private static Path warpsFile(Path root) {
+        return TestConfigs.essentials(root)
+            .resolve(WarpsFile.FILE_NAME);
+    }
+
+    private static Path playersFile(Path root) {
+        return TestConfigs.worldState(root)
+            .resolve(JsonPlayerDataStore.PLAYERS_FILE_NAME);
+    }
+
+    private static RoleServices open(ConfigService configs, AtomicInteger built) {
         built.incrementAndGet();
         configs.open(EssentialsSettings.spec());
         configs.open(WarpsFile.spec());
