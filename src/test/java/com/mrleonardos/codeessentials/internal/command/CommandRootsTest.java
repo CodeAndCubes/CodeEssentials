@@ -10,8 +10,11 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.core.LogEvent;
+import org.apache.logging.log4j.core.appender.AbstractAppender;
 import org.junit.jupiter.api.Test;
 
 import com.mrleonardos.codecore.api.command.CommandNode;
@@ -121,10 +124,84 @@ class CommandRootsTest {
         CommandRoots book = new CommandRoots();
         book.commands.remove(CommandRoots.HOME);
 
+        assertFalse(book.filledIn(), "до выбора дописывать нечего");
+
         List<CommandNode> chosen = book.chosen(roots(CommandRoots.HOME), LOG);
 
         assertEquals(Collections.singletonList(CommandRoots.HOME), names(chosen));
         assertTrue(book.commands.get(CommandRoots.HOME).enabled);
+        assertTrue(book.filledIn(), "добавленную запись нужно сохранить на диск, иначе править нечего");
+    }
+
+    @Test
+    void aFileThatNeedsNothingIsNotMarkedForSaving() {
+        CommandRoots book = new CommandRoots();
+
+        book.chosen(roots(CommandRoots.HOME, CommandRoots.SPAWN), LOG);
+
+        assertFalse(book.filledIn());
+    }
+
+    @Test
+    void anAliasThatIsTheNameOfALiveRootIsCalledOutWithBothNames() {
+        CommandRoots book = new CommandRoots();
+        book.commands.get(CommandRoots.HOME).aliases = new ArrayList<>(Collections.singletonList(CommandRoots.SPAWN));
+
+        List<String> lines = record(() -> book.chosen(roots(CommandRoots.HOME, CommandRoots.SPAWN), LOG));
+
+        assertTrue(
+            lines.stream()
+                .anyMatch(
+                    line -> line.contains(CommandRoots.HOME) && line.contains(CommandRoots.SPAWN)
+                        && line.contains("Alias")),
+            () -> "спор за имя обязан быть виден в логе: " + lines);
+    }
+
+    @Test
+    void anAliasOfADisabledRootStartsNoArgument() {
+        CommandRoots book = new CommandRoots();
+        book.commands.get(CommandRoots.SPAWN).enabled = false;
+        book.commands.get(CommandRoots.HOME).aliases = new ArrayList<>(Collections.singletonList(CommandRoots.SPAWN));
+
+        List<String> lines = record(() -> book.chosen(roots(CommandRoots.HOME, CommandRoots.SPAWN), LOG));
+
+        assertTrue(
+            lines.stream()
+                .noneMatch(line -> line.contains("Alias")),
+            () -> "выключенный корень имя не держит, спорить не с кем: " + lines);
+    }
+
+    private static List<String> record(Runnable work) {
+        org.apache.logging.log4j.core.Logger held = (org.apache.logging.log4j.core.Logger) LOG;
+        CapturingAppender appender = new CapturingAppender();
+        Level before = held.getLevel();
+        held.addAppender(appender);
+        held.setLevel(Level.WARN);
+        try {
+            work.run();
+        } finally {
+            held.removeAppender(appender);
+            held.setLevel(before);
+        }
+        return appender.lines;
+    }
+
+    /** Подставной приёмник строк лога: ловит отформатированные сообщения. */
+    private static final class CapturingAppender extends AbstractAppender {
+
+        private final List<String> lines = new ArrayList<>();
+
+        CapturingAppender() {
+            super("capturing-roots", null, null, true);
+            start();
+        }
+
+        @Override
+        public void append(LogEvent event) {
+            lines.add(
+                event.getMessage()
+                    .getFormattedMessage());
+        }
     }
 
     @Test

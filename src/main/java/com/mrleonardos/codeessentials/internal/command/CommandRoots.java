@@ -4,9 +4,11 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 import org.apache.logging.log4j.Logger;
 
@@ -45,6 +47,8 @@ public final class CommandRoots {
 
     public Map<String, Entry> commands = factoryEntries();
 
+    private transient boolean filledIn;
+
     public static ConfigSpec<CommandRoots> spec() {
         return ConfigSpec.of(EssentialsSettings.MODID, EssentialsSettings.COMMANDS_FILE, CommandRoots.class)
             .scope(ConfigScope.SETTINGS)
@@ -69,23 +73,44 @@ public final class CommandRoots {
         return unknown;
     }
 
+    /** Правда ли при выборе в файл добавилась хотя бы одна запись и его пора сохранить. */
+    public boolean filledIn() {
+        return filledIn;
+    }
+
     public List<CommandNode> chosen(List<CommandNode> roots, Logger log) {
         for (String name : unknownRoots()) {
             log.warn("commands.json holds an unknown command root {}, the record is skipped", name);
         }
-        List<CommandNode> chosen = new ArrayList<>();
+        Set<String> live = new LinkedHashSet<>();
         for (CommandNode root : roots) {
             Entry entry = commands.get(root.name());
             if (entry == null) {
                 entry = factoryEntry(root.name());
                 commands.put(root.name(), entry);
+                filledIn = true;
                 log.info("commands.json had no record for {}, the factory one is added", root.name());
             }
+            if (entry.enabled) {
+                live.add(root.name());
+            }
+        }
+        List<CommandNode> chosen = new ArrayList<>();
+        for (CommandNode root : roots) {
+            Entry entry = commands.get(root.name());
             if (!entry.enabled) {
                 log.info("Command root {} is off in commands.json, the name stays free", root.name());
                 continue;
             }
             for (String alias : aliasesOf(entry, root.name())) {
+                if (live.contains(alias)) {
+                    log.warn(
+                        "Alias {} of command root {} is the name of the live root {}, "
+                            + "the server keeps whoever registers first",
+                        alias,
+                        root.name(),
+                        alias);
+                }
                 root.alias(alias);
             }
             chosen.add(root);
