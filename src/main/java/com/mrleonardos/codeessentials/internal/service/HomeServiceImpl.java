@@ -7,6 +7,10 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
 import org.apache.logging.log4j.Logger;
@@ -24,6 +28,8 @@ import com.mrleonardos.codeessentials.api.store.StoreResult;
 import com.mrleonardos.codeessentials.internal.EssentialsSettings;
 
 public final class HomeServiceImpl implements HomeService {
+
+    public static final long AWAIT_MILLIS = 10_000L;
 
     private final Supplier<EssentialsSettings> settings;
     private final PlayerMeta meta;
@@ -92,6 +98,18 @@ public final class HomeServiceImpl implements HomeService {
         if (player == null || point == null || actor == null) {
             return StoreResult.failure(StoreResult.Failure.INVALID_VALUE, "player, point and actor are required");
         }
+        return onMainThread(() -> writeHome(player, name, point, actor));
+    }
+
+    @Override
+    public StoreResult deleteHome(UUID player, String name, String actor) {
+        if (player == null || actor == null) {
+            return StoreResult.failure(StoreResult.Failure.INVALID_VALUE, "player and actor are required");
+        }
+        return onMainThread(() -> dropHome(player, name, actor));
+    }
+
+    private StoreResult writeHome(UUID player, String name, Point point, String actor) {
         String key = lower(name);
         EssentialsSettings current = settings.get();
         if (!current.ceilings()
@@ -127,11 +145,7 @@ public final class HomeServiceImpl implements HomeService {
         return written;
     }
 
-    @Override
-    public StoreResult deleteHome(UUID player, String name, String actor) {
-        if (player == null || actor == null) {
-            return StoreResult.failure(StoreResult.Failure.INVALID_VALUE, "player and actor are required");
-        }
+    private StoreResult dropHome(UUID player, String name, String actor) {
         String key = lower(name);
         PlayerRecord held = record(player);
         if (!held.homes()
@@ -153,6 +167,43 @@ public final class HomeServiceImpl implements HomeService {
             log.info("{} deleted home {} of {}", actor, key, player);
         }
         return written;
+    }
+
+    private StoreResult onMainThread(Supplier<StoreResult> work) {
+        AtomicReference<StoreResult> answer = new AtomicReference<>();
+        AtomicBoolean claimed = new AtomicBoolean();
+        CountDownLatch done = new CountDownLatch(1);
+        scheduler.onMainThread(() -> {
+            if (!claimed.compareAndSet(false, true)) {
+                return;
+            }
+            try {
+                answer.set(work.get());
+            } catch (RuntimeException broken) {
+                log.error("Home change broke on the main thread: {}", broken.toString(), broken);
+                answer.set(StoreResult.failure(StoreResult.Failure.PROVIDER_FAILED, broken.toString()));
+            } finally {
+                done.countDown();
+            }
+        });
+        try {
+            if (done.await(AWAIT_MILLIS, TimeUnit.MILLISECONDS)) {
+                return answer.get();
+            }
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread()
+                .interrupt();
+            return abandon(claimed, "interrupted while waiting");
+        }
+        return abandon(claimed, "the main thread did not take the change within " + AWAIT_MILLIS + " ms");
+    }
+
+    private StoreResult abandon(AtomicBoolean claimed, String reason) {
+        if (!claimed.compareAndSet(false, true)) {
+            return StoreResult.failure(StoreResult.Failure.TIMEOUT, reason);
+        }
+        log.warn("Home change was dropped from the queue: {}", reason);
+        return StoreResult.failure(StoreResult.Failure.TIMEOUT, reason);
     }
 
     private PlayerRecord record(UUID player) {

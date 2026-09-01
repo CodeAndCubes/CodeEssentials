@@ -63,7 +63,7 @@ final class ServiceTestStubs {
 
         @Override
         public void onMainThread(Runnable task) {
-            pending.add(task);
+            task.run();
         }
 
         @Override
@@ -77,6 +77,32 @@ final class ServiceTestStubs {
             for (Runnable task : due) {
                 task.run();
             }
+        }
+    }
+
+    /** Планировщик, у которого главный поток это отдельный поток: видно, кто где исполняется. */
+    static final class Handoff implements Scheduler {
+
+        final List<Runnable> pending = new ArrayList<>();
+
+        Thread main;
+
+        @Override
+        public void onMainThread(Runnable task) {
+            Thread worker = new Thread(task, "codeessentials-test-main");
+            main = worker;
+            worker.start();
+            try {
+                worker.join();
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread()
+                    .interrupt();
+            }
+        }
+
+        @Override
+        public void afterTicks(int ticks, Runnable task) {
+            pending.add(task);
         }
     }
 
@@ -104,6 +130,7 @@ final class ServiceTestStubs {
 
         final List<String> seen = new ArrayList<>();
         final List<Set<UUID>> changes = new ArrayList<>();
+        final List<Thread> threads = new ArrayList<>();
         EssentialsEvents.Kind kind = EssentialsEvents.Kind.INFORM;
         EssentialsEvents.Decision verdict = EssentialsEvents.Decision.allow();
         boolean throwOnBeforeSet;
@@ -115,6 +142,7 @@ final class ServiceTestStubs {
 
         @Override
         public EssentialsEvents.Decision beforeSet(UUID player, HomeRecord home, boolean overwrite) {
+            threads.add(Thread.currentThread());
             if (throwOnBeforeSet) {
                 throw new IllegalStateException("listener is broken");
             }
@@ -124,6 +152,7 @@ final class ServiceTestStubs {
 
         @Override
         public void afterSet(UUID player, HomeRecord home, boolean overwrite) {
+            threads.add(Thread.currentThread());
             seen.add("after " + home.name());
         }
 

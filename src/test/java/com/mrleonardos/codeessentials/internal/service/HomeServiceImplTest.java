@@ -2,6 +2,8 @@ package com.mrleonardos.codeessentials.internal.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Collections;
@@ -251,6 +253,30 @@ class HomeServiceImplTest {
         ticks.tick();
         assertEquals(1, watcher.changes.size());
         assertEquals(Collections.singleton(STEVE), watcher.changes.get(0));
+    }
+
+    @Test
+    void aWriteFromAForeignThreadCallsItsListenersOnTheMainOne() {
+        ServiceTestStubs.Handoff handoff = new ServiceTestStubs.Handoff();
+        ServiceTestStubs.Watcher watcher = new ServiceTestStubs.Watcher();
+        events.register(0, watcher);
+        HomeServiceImpl offThread = new HomeServiceImpl(
+            () -> settings,
+            meta,
+            state,
+            () -> events,
+            handoff,
+            LogManager.getLogger("codeessentials-test"));
+
+        assertTrue(
+            offThread.setHome(STEVE, "base", SPOT, "Steve")
+                .successful());
+
+        assertEquals(2, watcher.threads.size(), () -> watcher.seen.toString());
+        for (Thread seen : watcher.threads) {
+            assertSame(handoff.main, seen, "слушателей дома зовут в главном потоке, а не в потоке вызывающего");
+        }
+        assertNotSame(Thread.currentThread(), handoff.main);
     }
 
     @Test
