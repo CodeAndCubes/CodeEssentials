@@ -423,9 +423,26 @@ class EssentialsCommandsTest {
         assertEquals(0, backs.popped);
 
         subjects.nodes.add(Nodes.BACK_CROSSWORLD);
+        execute(root(CommandRoots.BACK), new TestCommandContext());
+        assertEquals(1, teleports.asked.size());
+        assertEquals(
+            TeleportCause.BACK,
+            teleports.asked.get(0)
+                .cause());
+    }
+
+    @Test
+    void theStackIsLeftToTheEngineOnEveryOutcome() {
+        backs.stack.add(BackPoint.of(HERE, BackPoint.Origin.TELEPORT, 1L));
+
         teleports.outcome = TeleportJob.State.DONE;
         execute(root(CommandRoots.BACK), new TestCommandContext());
-        assertEquals(1, backs.popped, "состоявшийся возврат снимает запись");
+
+        teleports.outcome = TeleportJob.State.WARMUP;
+        execute(root(CommandRoots.BACK), new TestCommandContext());
+
+        assertEquals(0, backs.popped, "запись снимает движок в момент переноса, а не команда");
+        assertEquals(1, backs.stack.size());
     }
 
     @Test

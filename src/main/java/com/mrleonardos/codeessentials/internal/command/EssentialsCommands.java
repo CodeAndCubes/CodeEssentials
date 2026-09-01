@@ -500,8 +500,8 @@ public final class EssentialsCommands {
         if (here == null) {
             return;
         }
-        BackService service = backs.get();
-        BackPoint top = service.peek(self)
+        BackPoint top = backs.get()
+            .peek(self)
             .orElse(null);
         if (top == null) {
             context.replyError(EssentialsMessages.ERROR_NO_BACK);
@@ -519,10 +519,7 @@ public final class EssentialsCommands {
         if (waiting(context, self, TeleportCause.BACK)) {
             return;
         }
-        TeleportJob job = start(context, self, top.point(), TeleportCause.BACK, true);
-        if (job != null && job.applied()) {
-            service.pop(self);
-        }
+        start(context, self, top.point(), TeleportCause.BACK, true);
     }
 
     private void ask(CommandContext context, boolean here) {
