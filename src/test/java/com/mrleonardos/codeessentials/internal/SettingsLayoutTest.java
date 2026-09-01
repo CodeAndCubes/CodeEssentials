@@ -24,6 +24,9 @@ import com.mrleonardos.codeessentials.internal.service.WarpsFile;
 
 class SettingsLayoutTest {
 
+    private static final List<Class<?>> FILES = Arrays
+        .asList(EssentialsSettings.class, CommandRoots.class, WarpsFile.class, SpawnFile.class);
+
     private static final List<String> MOVED_OUT = Arrays.asList(
         "servicePriority",
         "storage",
@@ -104,12 +107,21 @@ class SettingsLayoutTest {
     @Test
     void everyFieldOfTheFourFilesExplainsItself() {
         List<String> silent = new ArrayList<>();
-        for (Class<?> type : Arrays
-            .asList(EssentialsSettings.class, CommandRoots.class, WarpsFile.class, SpawnFile.class)) {
+        for (Class<?> type : FILES) {
             collectSilent(type, "", silent);
         }
 
         assertTrue(silent.isEmpty(), () -> "поле настроек без описания читают по исходникам: " + silent);
+    }
+
+    @Test
+    void everyOneOfTheFourFilesSaysWhatItIsInItsFirstLines() {
+        for (Class<?> type : FILES) {
+            Comment header = type.getAnnotation(Comment.class);
+            assertTrue(
+                header != null && header.value().length > 0,
+                () -> "шапка объясняет, что это за файл: " + type.getSimpleName());
+        }
     }
 
     private static Set<String> paths(Class<?> type) {
