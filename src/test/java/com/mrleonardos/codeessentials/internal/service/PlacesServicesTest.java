@@ -63,6 +63,28 @@ class PlacesServicesTest {
     }
 
     @Test
+    void aKeyWrittenInUpperCaseIsHealedIntoTheNameEveryPathUses() {
+        WarpsFile file = new WarpsFile();
+        file.warps.put("Shop", new WarpsFile.Warp(SHOP.print(), "рынок у ратуши"));
+        WarpsFile.heal(file);
+        ServiceTestStubs.Files<WarpsFile> held = new ServiceTestStubs.Files<>(file);
+        WarpServiceImpl warps = new WarpServiceImpl(
+            () -> settings,
+            held,
+            new ServiceTestStubs.Spots(SafeSpotResult.found(SHOP, SHOP, 1)),
+            LOG);
+
+        assertTrue(
+            warps.setWarp(WarpRecord.of("shop", NETHER, "рынок у ратуши"), false, "Steve")
+                .successful());
+        assertEquals(1, file.warps.size(), "второго ключа под тем же именем быть не должно");
+        assertTrue(
+            warps.deleteWarp("shop", "Steve")
+                .successful());
+        assertTrue(file.warps.isEmpty(), "чтение, запись и удаление обязаны сходиться на одном ключе");
+    }
+
+    @Test
     void anUnsafeSpotRefusesTheWarpAndLeavesTheFileAlone() {
         WarpsFile file = new WarpsFile();
         ServiceTestStubs.Files<WarpsFile> held = new ServiceTestStubs.Files<>(file);
@@ -274,6 +296,43 @@ class PlacesServicesTest {
 
         assertFalse(backs.pop(STEVE));
         assertTrue(state.batches.isEmpty());
+    }
+
+    @Test
+    void popTakesTheTopAndLeavesTheRest() {
+        ServiceTestStubs.Meta meta = new ServiceTestStubs.Meta();
+        meta.values.put(EssentialsSettings.META_BACK_DEPTH, "2");
+        BackServiceImpl backs = new BackServiceImpl(() -> settings, meta, new ServiceTestStubs.State(), LOG);
+        backs.record(STEVE, BackPoint.of(SHOP, BackPoint.Origin.TELEPORT, 1L));
+        backs.record(STEVE, BackPoint.of(NETHER, BackPoint.Origin.TELEPORT, 2L));
+
+        assertTrue(backs.pop(STEVE));
+        assertEquals(
+            SHOP,
+            backs.peek(STEVE)
+                .get()
+                .point());
+        assertTrue(backs.pop(STEVE));
+        assertFalse(backs.pop(STEVE));
+    }
+
+    @Test
+    void theTeleportOnlyModeIsTheMirrorOfTheDeathOnlyOne() {
+        settings.back.on = EssentialsSettings.BACK_TELEPORT;
+        BackServiceImpl backs = new BackServiceImpl(
+            () -> settings,
+            new ServiceTestStubs.Meta(),
+            new ServiceTestStubs.State(),
+            LOG);
+
+        assertTrue(
+            backs.record(STEVE, BackPoint.of(SHOP, BackPoint.Origin.TELEPORT, 1L))
+                .successful());
+        assertEquals(
+            StoreResult.Failure.UNSUPPORTED,
+            backs.record(STEVE, BackPoint.of(NETHER, BackPoint.Origin.DEATH, 2L))
+                .failure()
+                .get());
     }
 
     private WarpServiceImpl warps(WarpsFile file, SafeSpotResult spot) {

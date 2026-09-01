@@ -1,6 +1,7 @@
 package com.mrleonardos.codeessentials.internal.service;
 
 import java.util.LinkedHashMap;
+import java.util.Locale;
 import java.util.Map;
 
 import com.mrleonardos.codecore.api.config.ConfigScope;
@@ -22,10 +23,24 @@ public final class WarpsFile {
             .build();
     }
 
-    private static void heal(WarpsFile file) {
+    static void heal(WarpsFile file) {
         if (file.warps == null) {
             file.warps = new LinkedHashMap<>();
+            return;
         }
+        Map<String, Warp> keyed = new LinkedHashMap<>();
+        for (Map.Entry<String, Warp> entry : file.warps.entrySet()) {
+            if (entry.getKey() == null) {
+                continue;
+            }
+            String name = entry.getKey()
+                .trim()
+                .toLowerCase(Locale.ROOT);
+            if (!keyed.containsKey(name)) {
+                keyed.put(name, entry.getValue());
+            }
+        }
+        file.warps = keyed;
     }
 
     public static final class Warp {
