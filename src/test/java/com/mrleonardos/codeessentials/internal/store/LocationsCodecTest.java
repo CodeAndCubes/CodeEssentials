@@ -133,6 +133,114 @@ class LocationsCodecTest {
     }
 
     @Test
+    void homesOverALoweredCeilingStayInTheFileAndComeBackWhenItRises() {
+        JsonObject homes = new JsonObject();
+        for (String name : new String[] { "one", "two", "three", "four", "five" }) {
+            homes.addProperty(name, "0@1.5,64.0,2.5,0.0,0.0");
+        }
+        JsonObject file = playersFile(entry("Steve", homes, null));
+        LocationsCodec lowered = new LocationsCodec(
+            EssentialsLimits.builder()
+                .homesPerPlayer(2)
+                .build());
+
+        LocationsCodec.DecodedPlayers decoded = lowered.readPlayers(file, null);
+        JsonObject written = LocationsCodec.emptyPlayers();
+        lowered.writePlayers(
+            written,
+            decoded.players()
+                .values(),
+            decoded.quarantine());
+
+        assertEquals(
+            2,
+            decoded.players()
+                .get(STEVE)
+                .homes()
+                .size());
+        assertEquals(
+            3,
+            decoded.quarantine()
+                .records(),
+            "лишние дома обязаны попасть в карантин, а не пропасть");
+        assertEquals(
+            5,
+            written.getAsJsonObject(LocationsCodec.PLAYERS)
+                .getAsJsonObject(STEVE.toString())
+                .getAsJsonObject(LocationsCodec.HOMES)
+                .entrySet()
+                .size(),
+            "запись при пониженном потолке не стирает дома с диска");
+        assertEquals(
+            5,
+            codec.readPlayers(written, null)
+                .players()
+                .get(STEVE)
+                .homes()
+                .size(),
+            "возврат потолка возвращает дома игроку");
+    }
+
+    @Test
+    void aHomeWithABadNameSurvivesTheWriteEvenWhenNothingElseIsLeft() {
+        JsonObject homes = new JsonObject();
+        homes.addProperty("ДОМ", "0@1.5,64.0,2.5,0.0,0.0");
+        JsonObject entry = new JsonObject();
+        entry.add(LocationsCodec.HOMES, homes);
+        JsonObject file = playersFile(entry);
+
+        LocationsCodec.DecodedPlayers decoded = codec.readPlayers(file, null);
+        JsonObject written = LocationsCodec.emptyPlayers();
+        codec.writePlayers(
+            written,
+            decoded.players()
+                .values(),
+            decoded.quarantine());
+
+        assertTrue(
+            written.getAsJsonObject(LocationsCodec.PLAYERS)
+                .getAsJsonObject(STEVE.toString())
+                .getAsJsonObject(LocationsCodec.HOMES)
+                .has("ДОМ"),
+            "запись без единого читаемого дома не должна уносить с собой нечитаемый");
+    }
+
+    @Test
+    void backEntriesOverTheCeilingStayInTheFileToo() {
+        JsonArray back = new JsonArray();
+        for (int index = 0; index < 4; index++) {
+            back.add(backEntry("0@" + index + ".5,64.0,0.5,0.0,0.0", "TELEPORT"));
+        }
+        JsonObject file = playersFile(entry("Steve", null, back));
+        LocationsCodec lowered = new LocationsCodec(
+            EssentialsLimits.builder()
+                .backDepth(1)
+                .build());
+
+        LocationsCodec.DecodedPlayers decoded = lowered.readPlayers(file, null);
+        JsonObject written = LocationsCodec.emptyPlayers();
+        lowered.writePlayers(
+            written,
+            decoded.players()
+                .values(),
+            decoded.quarantine());
+
+        assertEquals(
+            1,
+            decoded.players()
+                .get(STEVE)
+                .back()
+                .size());
+        assertEquals(
+            4,
+            written.getAsJsonObject(LocationsCodec.PLAYERS)
+                .getAsJsonObject(STEVE.toString())
+                .getAsJsonArray(LocationsCodec.BACK)
+                .size(),
+            "понижение глубины стека тоже ничего не стирает");
+    }
+
+    @Test
     void entryUnderAnUnreadableKeyIsHeldBackAndWrittenAgain() {
         JsonObject players = new JsonObject();
         players.addProperty("not-a-uuid", "kept as it was");

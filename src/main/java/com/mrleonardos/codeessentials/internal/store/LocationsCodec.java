@@ -3,10 +3,12 @@ package com.mrleonardos.codeessentials.internal.store;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.TreeMap;
 import java.util.UUID;
 
@@ -76,7 +78,7 @@ public final class LocationsCodec {
             JsonObject data = entry.getValue()
                 .getAsJsonObject();
             Tally tally = new Tally();
-            PlayerRecord record = readPlayer(uuid, data, log, tally);
+            PlayerRecord record = readPlayer(uuid, data, log, tally, quarantine.of(entry.getKey()));
             if (record == null) {
                 dropped++;
                 quarantine.hold(entry.getKey(), entry.getValue());
@@ -91,17 +93,30 @@ public final class LocationsCodec {
     public void writePlayers(JsonObject file, Collection<PlayerRecord> players, Quarantine quarantine) {
         JsonObject encoded = new JsonObject();
         for (PlayerRecord player : players) {
-            if (isEmpty(player)) {
+            String key = player.uuid()
+                .toString();
+            JsonObject data = encodePlayer(player);
+            quarantine.mergeInto(key, data);
+            if (data.entrySet()
+                .isEmpty()) {
                 continue;
             }
-            encoded.add(
-                player.uuid()
-                    .toString(),
-                encodePlayer(player));
+            encoded.add(key, data);
         }
-        for (Map.Entry<String, JsonElement> held : quarantine.entries()) {
-            if (!encoded.has(held.getKey())) {
-                encoded.add(held.getKey(), held.getValue());
+        for (String key : quarantine.keys()) {
+            if (encoded.has(key)) {
+                continue;
+            }
+            JsonElement whole = quarantine.whole(key);
+            if (whole != null) {
+                encoded.add(key, whole);
+                continue;
+            }
+            JsonObject data = new JsonObject();
+            quarantine.mergeInto(key, data);
+            if (!data.entrySet()
+                .isEmpty()) {
+                encoded.add(key, data);
             }
         }
         file.add(PLAYERS, encoded);
@@ -178,9 +193,9 @@ public final class LocationsCodec {
         file.add(REQUESTS, requests);
     }
 
-    private PlayerRecord readPlayer(UUID uuid, JsonObject data, Logger log, Tally tally) {
-        List<HomeRecord> homes = readHomes(uuid, data.get(HOMES), log, tally);
-        List<BackPoint> back = readBack(uuid, data.get(BACK), log, tally);
+    private PlayerRecord readPlayer(UUID uuid, JsonObject data, Logger log, Tally tally, Held held) {
+        List<HomeRecord> homes = readHomes(uuid, data.get(HOMES), log, tally, held);
+        List<BackPoint> back = readBack(uuid, data.get(BACK), log, tally, held);
         try {
             return PlayerRecord.of(uuid, text(data.get(NAME)), homes, back);
         } catch (RuntimeException broken) {
@@ -189,7 +204,7 @@ public final class LocationsCodec {
         }
     }
 
-    private List<HomeRecord> readHomes(UUID uuid, JsonElement element, Logger log, Tally tally) {
+    private List<HomeRecord> readHomes(UUID uuid, JsonElement element, Logger log, Tally tally, Held held) {
         List<HomeRecord> homes = new ArrayList<>();
         if (element == null || !element.isJsonObject()) {
             return homes;
@@ -200,13 +215,19 @@ public final class LocationsCodec {
                 .toLowerCase(Locale.ROOT);
             if (!limits.acceptsName(name) || homes.size() >= limits.homesPerPlayer()) {
                 tally.count++;
-                warn(log, "Home {} of {} does not fit the ceilings and was dropped", entry.getKey(), uuid);
+                held.home(entry.getKey(), entry.getValue());
+                warn(
+                    log,
+                    "Home {} of {} does not fit the ceilings and stays in the file untouched",
+                    entry.getKey(),
+                    uuid);
                 continue;
             }
             HomeRecord home = readHome(name, entry.getValue(), log);
             if (home == null) {
                 tally.count++;
-                warn(log, "Home {} of {} has no readable point and was dropped", entry.getKey(), uuid);
+                held.home(entry.getKey(), entry.getValue());
+                warn(log, "Home {} of {} has no readable point and stays in the file untouched", entry.getKey(), uuid);
                 continue;
             }
             homes.add(home);
@@ -241,20 +262,22 @@ public final class LocationsCodec {
         }
     }
 
-    private List<BackPoint> readBack(UUID uuid, JsonElement element, Logger log, Tally tally) {
+    private List<BackPoint> readBack(UUID uuid, JsonElement element, Logger log, Tally tally, Held held) {
         List<BackPoint> back = new ArrayList<>();
         if (element == null || !element.isJsonArray()) {
             return back;
         }
         for (JsonElement raw : element.getAsJsonArray()) {
-            if (back.size() >= EssentialsLimits.DEFAULT_BACK_DEPTH) {
+            if (back.size() >= limits.backDepth()) {
                 tally.count++;
+                held.back(raw);
                 continue;
             }
             BackPoint point = readBackPoint(raw);
             if (point == null) {
                 tally.count++;
-                warn(log, "Back entry of {} has no readable point and was dropped", uuid);
+                held.back(raw);
+                warn(log, "Back entry of {} has no readable point and stays in the file untouched", uuid);
                 continue;
             }
             back.add(point);
@@ -324,14 +347,6 @@ public final class LocationsCodec {
         return data;
     }
 
-    private static boolean isEmpty(PlayerRecord player) {
-        return player.homes()
-            .isEmpty()
-            && player.back()
-                .isEmpty()
-            && player.name() == null;
-    }
-
     private static BackPoint.Origin origin(String raw) {
         if (raw != null && BackPoint.Origin.DEATH.name()
             .equalsIgnoreCase(raw.trim())) {
@@ -382,27 +397,100 @@ public final class LocationsCodec {
         private int count;
     }
 
+    static final class Held {
+
+        private final Map<String, JsonElement> homes = new LinkedHashMap<>();
+        private final List<JsonElement> back = new ArrayList<>();
+
+        void home(String name, JsonElement element) {
+            if (element != null) {
+                homes.put(name, element);
+            }
+        }
+
+        void back(JsonElement element) {
+            if (element != null) {
+                back.add(element);
+            }
+        }
+
+        int records() {
+            return homes.size() + back.size();
+        }
+
+        void mergeInto(JsonObject data) {
+            if (!homes.isEmpty()) {
+                JsonObject written = section(data, HOMES);
+                for (Map.Entry<String, JsonElement> home : homes.entrySet()) {
+                    if (!written.has(home.getKey())) {
+                        written.add(home.getKey(), home.getValue());
+                    }
+                }
+                data.add(HOMES, written);
+            }
+            if (!back.isEmpty()) {
+                JsonArray written = data.has(BACK) && data.get(BACK)
+                    .isJsonArray() ? data.getAsJsonArray(BACK) : new JsonArray();
+                for (JsonElement point : back) {
+                    written.add(point);
+                }
+                data.add(BACK, written);
+            }
+        }
+
+        private static JsonObject section(JsonObject data, String field) {
+            JsonElement element = data.get(field);
+            return element != null && element.isJsonObject() ? element.getAsJsonObject() : new JsonObject();
+        }
+    }
+
+    /**
+     * Всё, что чтение отложило в сторону: записи игроков под нечитаемым ключом, дома и точки
+     * возврата сверх потолка или без разбираемой точки. Запись дописывает отложенное обратно, поэтому
+     * понижение потолка в конфиге ничего не стирает с диска и отменяется возвратом прежнего значения.
+     */
     public static final class Quarantine {
 
-        private static final Quarantine EMPTY = new Quarantine();
-
-        private final Map<String, JsonElement> held = new LinkedHashMap<>();
+        private final Map<String, JsonElement> entries = new LinkedHashMap<>();
+        private final Map<String, Held> parts = new LinkedHashMap<>();
 
         public static Quarantine empty() {
-            return EMPTY;
+            return new Quarantine();
         }
 
         public int records() {
-            return held.size();
+            int count = entries.size();
+            for (Held held : parts.values()) {
+                count += held.records();
+            }
+            return count;
         }
 
-        Collection<Map.Entry<String, JsonElement>> entries() {
-            return held.entrySet();
+        Held of(String key) {
+            return parts.computeIfAbsent(key, name -> new Held());
         }
 
         void hold(String key, JsonElement element) {
             if (element != null) {
-                held.put(key, element);
+                entries.put(key, element);
+                parts.remove(key);
+            }
+        }
+
+        Collection<String> keys() {
+            Set<String> keys = new LinkedHashSet<>(entries.keySet());
+            keys.addAll(parts.keySet());
+            return keys;
+        }
+
+        JsonElement whole(String key) {
+            return entries.get(key);
+        }
+
+        void mergeInto(String key, JsonObject data) {
+            Held held = parts.get(key);
+            if (held != null) {
+                held.mergeInto(data);
             }
         }
     }
