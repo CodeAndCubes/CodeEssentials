@@ -103,6 +103,48 @@ class RequestBridgeTest {
     }
 
     @Test
+    void anAcceptedTpaCarriesTheAskerAndHisJobBackToTheCommand() {
+        bridge.send(STEVE, "Steve", ALEX, "Alex", false);
+
+        TeleportRequests.Reply reply = bridge.accept(ALEX, "Steve");
+
+        assertEquals(
+            STEVE,
+            reply.moved()
+                .get(),
+            "по /tpa идёт проситель");
+        assertEquals(
+            STEVE,
+            reply.job()
+                .get()
+                .player());
+    }
+
+    @Test
+    void anAcceptedTpaHereCarriesTheAddresseeAndHisJob() {
+        bridge.send(STEVE, "Steve", ALEX, "Alex", true);
+
+        TeleportRequests.Reply reply = bridge.accept(ALEX, "Steve");
+
+        assertEquals(
+            ALEX,
+            reply.moved()
+                .get(),
+            "по /tpahere идёт адресат");
+        assertEquals(
+            ALEX,
+            reply.job()
+                .get()
+                .player());
+        assertEquals(
+            Point.of(0, 1.0D, 64.0D, 1.0D),
+            teleports.asked()
+                .get(0)
+                .destination(),
+            "адресат идёт к просителю");
+    }
+
+    @Test
     void denyingByNameNamesTheAskerAndMovesNobody() {
         bridge.send(STEVE, "Steve", ALEX, "Alex", false);
 

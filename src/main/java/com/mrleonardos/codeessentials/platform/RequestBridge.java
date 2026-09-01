@@ -44,7 +44,13 @@ final class RequestBridge implements TeleportRequests {
             case SENT:
                 return Reply.of(Answer.SENT, subject(answer, fallback, false));
             case ACCEPTED:
-                return Reply.of(Answer.ACCEPTED, subject(answer, fallback, true));
+                return Reply.accepted(
+                    subject(answer, fallback, true),
+                    answer.ticket()
+                        .map(RequestBoard.Ticket::moved)
+                        .orElse(null),
+                    answer.job()
+                        .orElse(null));
             case DENIED:
                 return Reply.of(Answer.DENIED, subject(answer, fallback, true));
             case CANCELLED:

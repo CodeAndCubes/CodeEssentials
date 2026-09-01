@@ -76,12 +76,14 @@ public final class EssentialsMessages {
     public static final String REQUEST_SENT = "codeessentials.message.request_sent";
     public static final String REQUEST_INCOMING = "codeessentials.message.request_incoming";
     public static final String REQUEST_ACCEPTED = "codeessentials.message.request_accepted";
+    public static final String REQUEST_TAKEN = "codeessentials.message.request_taken";
     public static final String REQUEST_DENIED = "codeessentials.message.request_denied";
     public static final String REQUEST_WITHDRAWN = "codeessentials.message.request_withdrawn";
     public static final String REQUESTS_ON = "codeessentials.message.requests_on";
     public static final String REQUESTS_OFF = "codeessentials.message.requests_off";
     public static final String CANCELLED = "codeessentials.message.cancelled";
     public static final String CANCELLED_OTHER = "codeessentials.message.cancelled_other";
+    public static final String CANCELLED_WAITING = "codeessentials.message.cancelled_waiting";
     public static final String RELOAD_DONE = "codeessentials.message.reload_done";
     public static final String COOLDOWNS = "codeessentials.message.cooldowns";
     public static final String COOLDOWNS_EMPTY = "codeessentials.message.cooldowns_empty";

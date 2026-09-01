@@ -121,9 +121,8 @@ public final class RequestBoard {
         }
         Ticket ticket = picked.ticket()
             .get();
-        UUID moved = ticket.kind() == Kind.TO_TARGET ? ticket.from() : ticket.to();
-        UUID host = ticket.kind() == Kind.TO_TARGET ? ticket.to() : ticket.from();
-        Optional<Point> destination = world.position(host);
+        UUID moved = ticket.moved();
+        Optional<Point> destination = world.position(ticket.host());
         if (!destination.isPresent()) {
             return Answer.plain(Outcome.OFFLINE);
         }
@@ -303,6 +302,14 @@ public final class RequestBoard {
 
         public Kind kind() {
             return kind;
+        }
+
+        public UUID moved() {
+            return kind == Kind.TO_TARGET ? from : to;
+        }
+
+        public UUID host() {
+            return kind == Kind.TO_TARGET ? to : from;
         }
 
         public long expiresAt() {
