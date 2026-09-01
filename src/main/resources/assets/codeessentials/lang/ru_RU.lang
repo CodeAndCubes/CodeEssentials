@@ -1,0 +1,36 @@
+codeessentials.command.usage.home=/home [имя]
+codeessentials.command.usage.sethome=/sethome [имя]
+codeessentials.command.usage.delhome=/delhome <имя>
+codeessentials.command.usage.homes=/homes
+codeessentials.command.usage.warp=/warp <имя>
+codeessentials.command.usage.warps=/warps
+codeessentials.command.usage.setwarp=/setwarp <имя> [--force]
+codeessentials.command.usage.delwarp=/delwarp <имя>
+codeessentials.command.usage.spawn=/spawn
+codeessentials.command.usage.setspawn=/setspawn [--dim]
+codeessentials.command.usage.back=/back
+codeessentials.command.usage.tpa=/tpa <ник>
+codeessentials.command.usage.tpahere=/tpahere <ник>
+codeessentials.command.usage.tpaccept=/tpaccept [ник]
+codeessentials.command.usage.tpdeny=/tpdeny [ник]
+codeessentials.command.usage.tpacancel=/tpacancel
+codeessentials.command.usage.tpatoggle=/tpatoggle
+codeessentials.command.usage.tp=/tp <кто> <к кому | x y z> [--force]
+codeessentials.command.usage.tppos=/tppos <кто> <x> <y> <z> [измерение] [--force]
+codeessentials.command.usage.ecancel=/ecancel [ник]
+codeessentials.command.usage.essentials=/essentials <reload|cooldown|jobs>
+
+codeessentials.error.sender_not_player=Команда для игрока: у консоли нет ни позиции, ни домов
+
+codeessentials.cancel.superseded=Перенос отменён: начат новый
+codeessentials.cancel.moved=Перенос отменён: вы сдвинулись с места
+codeessentials.cancel.damaged=Перенос отменён: вы получили урон
+codeessentials.cancel.dead=Перенос отменён: вы погибли
+codeessentials.cancel.disconnected=Перенос отменён: выход с сервера
+codeessentials.cancel.vetoed=Перенос отменён: сюда нельзя
+codeessentials.cancel.by_command=Перенос отменён
+
+codeessentials.failed.unsafe=Приземляться некуда: рядом с точкой нет безопасного места
+codeessentials.failed.chunk_missing=Район цели не загружен, генерация выключена
+codeessentials.failed.dimension_missing=Измерение цели не поднялось
+codeessentials.failed.timeout=Перенос не уложился в отведённое время

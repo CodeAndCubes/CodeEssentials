@@ -1,0 +1,36 @@
+codeessentials.command.usage.home=/home [name]
+codeessentials.command.usage.sethome=/sethome [name]
+codeessentials.command.usage.delhome=/delhome <name>
+codeessentials.command.usage.homes=/homes
+codeessentials.command.usage.warp=/warp <name>
+codeessentials.command.usage.warps=/warps
+codeessentials.command.usage.setwarp=/setwarp <name> [--force]
+codeessentials.command.usage.delwarp=/delwarp <name>
+codeessentials.command.usage.spawn=/spawn
+codeessentials.command.usage.setspawn=/setspawn [--dim]
+codeessentials.command.usage.back=/back
+codeessentials.command.usage.tpa=/tpa <player>
+codeessentials.command.usage.tpahere=/tpahere <player>
+codeessentials.command.usage.tpaccept=/tpaccept [player]
+codeessentials.command.usage.tpdeny=/tpdeny [player]
+codeessentials.command.usage.tpacancel=/tpacancel
+codeessentials.command.usage.tpatoggle=/tpatoggle
+codeessentials.command.usage.tp=/tp <who> <to whom | x y z> [--force]
+codeessentials.command.usage.tppos=/tppos <who> <x> <y> <z> [dimension] [--force]
+codeessentials.command.usage.ecancel=/ecancel [player]
+codeessentials.command.usage.essentials=/essentials <reload|cooldown|jobs>
+
+codeessentials.error.sender_not_player=This command needs a player: the console has neither a position nor homes
+
+codeessentials.cancel.superseded=Teleport cancelled: a new one started
+codeessentials.cancel.moved=Teleport cancelled: you moved away
+codeessentials.cancel.damaged=Teleport cancelled: you took damage
+codeessentials.cancel.dead=Teleport cancelled: you died
+codeessentials.cancel.disconnected=Teleport cancelled: you left the server
+codeessentials.cancel.vetoed=Teleport cancelled: this spot is off limits
+codeessentials.cancel.by_command=Teleport cancelled
+
+codeessentials.failed.unsafe=Nowhere to land: no safe spot near the target
+codeessentials.failed.chunk_missing=The target area is not loaded and generation is off
+codeessentials.failed.dimension_missing=The target dimension did not come up
+codeessentials.failed.timeout=The teleport ran out of time

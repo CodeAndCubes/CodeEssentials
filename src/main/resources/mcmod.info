@@ -1,0 +1,21 @@
+{
+	"modListVersion": 2,
+	"modList": [{
+		"modid": "${modId}",
+		"name": "${modName}",
+		"description": "Дома, варпы, спавн, возврат и tpa-запросы: один движок переносов с тёплой задержкой, поиском безопасной точки и кулдаунами.",
+		"version": "${modVersion}",
+		"mcversion": "${minecraftVersion}",
+		"url": "",
+		"updateUrl": "",
+		"authorList": ["MrLeonardos"],
+		"credits": "",
+		"logoFile": "",
+		"screenshots": [],
+		"parent": "",
+		"requiredMods": ["codecore"],
+		"dependencies": ["codecore"],
+		"dependants": [],
+		"useDependencyInformation": true
+	}]
+}
