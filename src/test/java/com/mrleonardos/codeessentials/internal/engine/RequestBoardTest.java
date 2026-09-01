@@ -257,6 +257,73 @@ class RequestBoardTest {
     }
 
     @Test
+    void theTpaCooldownOfTheCarriedPlayerStopsTheAcceptance() {
+        build(cooling(30));
+        cooldowns.charge(EngineFixtures.STEVE, TeleportCause.TPA);
+        ask(RequestBoard.Kind.TO_TARGET);
+
+        RequestBoard.Answer answer = board.accept(EngineFixtures.ALEX, null);
+
+        assertEquals(RequestBoard.Outcome.COOLING_DOWN, answer.outcome());
+        assertEquals(30_000L, answer.waitMillis());
+        assertEquals(
+            EngineFixtures.STEVE,
+            answer.ticket()
+                .get()
+                .moved());
+        assertEquals(0, mover.moves());
+
+        clock.set(clock.get() + 31_000L);
+
+        assertEquals(
+            RequestBoard.Outcome.ACCEPTED,
+            board.accept(EngineFixtures.ALEX, null)
+                .outcome(),
+            "отказ по кулдауну не съедает просьбу, её принимают позже");
+    }
+
+    @Test
+    void theCooldownOfATpaHereBelongsToTheAddressee() {
+        build(cooling(30));
+        cooldowns.charge(EngineFixtures.ALEX, TeleportCause.TPA);
+        board.send(EngineFixtures.STEVE, "Steve", EngineFixtures.ALEX, "Alex", RequestBoard.Kind.HERE);
+
+        RequestBoard.Answer answer = board.accept(EngineFixtures.ALEX, null);
+
+        assertEquals(RequestBoard.Outcome.COOLING_DOWN, answer.outcome());
+        assertEquals(0, mover.moves(), "по /tpahere несут адресата, его кулдаун и смотрят");
+    }
+
+    @Test
+    void theCooldownOfTheAskerDoesNotStopATpaHere() {
+        build(cooling(30));
+        cooldowns.charge(EngineFixtures.STEVE, TeleportCause.TPA);
+        board.send(EngineFixtures.STEVE, "Steve", EngineFixtures.ALEX, "Alex", RequestBoard.Kind.HERE);
+
+        assertEquals(
+            RequestBoard.Outcome.ACCEPTED,
+            board.accept(EngineFixtures.ALEX, null)
+                .outcome(),
+            "проситель остаётся на месте, значит его кулдаун ни при чём");
+        assertEquals(1, mover.moves());
+    }
+
+    @Test
+    void theBypassNodeOfTheCarriedPlayerOpensTheWay() {
+        build(cooling(30));
+        cooldowns.charge(EngineFixtures.STEVE, TeleportCause.TPA);
+        rights.allow(EngineFixtures.STEVE, Cooldowns.BYPASS_NODE);
+        ask(RequestBoard.Kind.TO_TARGET);
+
+        assertEquals(
+            RequestBoard.Outcome.ACCEPTED,
+            board.accept(EngineFixtures.ALEX, null)
+                .outcome(),
+            "обход смотрят у того, кого несут, а не у того, кто нажал /tpaccept");
+        assertEquals(1, mover.moves());
+    }
+
+    @Test
     void acceptingAnAbsentPlayerMovesNobody() {
         ask(RequestBoard.Kind.TO_TARGET);
         worlds.gone(EngineFixtures.ALEX);
@@ -278,6 +345,16 @@ class RequestBoardTest {
             .requestTimeoutSeconds(timeoutSeconds)
             .requestRateSeconds(rateSeconds)
             .warmupSeconds(0)
+            .build();
+    }
+
+    private static EngineRules cooling(int tpaSeconds) {
+        return EngineRules.builder()
+            .maxPending(2)
+            .requestTimeoutSeconds(60)
+            .requestRateSeconds(0)
+            .warmupSeconds(0)
+            .cooldown(TeleportCause.TPA, tpaSeconds)
             .build();
     }
 

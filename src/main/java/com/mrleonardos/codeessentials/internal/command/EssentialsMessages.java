@@ -43,6 +43,7 @@ public final class EssentialsMessages {
     public static final String ERROR_REQUESTS_CLOSED = "codeessentials.error.requests_closed";
     public static final String ERROR_SELF_TARGET = "codeessentials.error.self_target";
     public static final String ERROR_COOLDOWN = "codeessentials.error.cooldown";
+    public static final String ERROR_MOVED_COOLDOWN = "codeessentials.error.moved_cooldown";
     public static final String ERROR_WARP_DENIED = "codeessentials.error.warp_denied";
     public static final String ERROR_BACK_DEATH_DENIED = "codeessentials.error.back_death_denied";
     public static final String ERROR_BACK_CROSSWORLD_DENIED = "codeessentials.error.back_crossworld_denied";

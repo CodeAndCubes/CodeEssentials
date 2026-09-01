@@ -41,6 +41,7 @@ public final class RequestBoard {
         SELF,
         BLOCKED,
         RATE_LIMITED,
+        COOLING_DOWN,
         OFFLINE
     }
 
@@ -122,6 +123,11 @@ public final class RequestBoard {
         Ticket ticket = picked.ticket()
             .get();
         UUID moved = ticket.moved();
+        long cooling = cooldowns.remaining(moved, TeleportCause.TPA);
+        if (cooling > 0L) {
+            restore(ticket);
+            return Answer.cooling(ticket, cooling);
+        }
         Optional<Point> destination = world.position(ticket.host());
         if (!destination.isPresent()) {
             return Answer.plain(Outcome.OFFLINE);
@@ -221,6 +227,11 @@ public final class RequestBoard {
             incoming.remove(target);
         }
         return Answer.of(Outcome.ACCEPTED, ticket);
+    }
+
+    private void restore(Ticket ticket) {
+        incoming.computeIfAbsent(ticket.to(), key -> new ArrayList<Ticket>())
+            .add(ticket);
     }
 
     private void schedule() {
@@ -356,6 +367,10 @@ public final class RequestBoard {
 
         static Answer waiting(long waitMillis) {
             return new Answer(Outcome.RATE_LIMITED, null, Collections.<String>emptyList(), waitMillis, null);
+        }
+
+        static Answer cooling(Ticket ticket, long waitMillis) {
+            return new Answer(Outcome.COOLING_DOWN, ticket, Collections.<String>emptyList(), waitMillis, null);
         }
 
         public Outcome outcome() {

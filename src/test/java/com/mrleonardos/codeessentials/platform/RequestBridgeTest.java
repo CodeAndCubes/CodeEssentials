@@ -9,6 +9,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import com.mrleonardos.codeessentials.api.model.Point;
+import com.mrleonardos.codeessentials.api.teleport.TeleportCause;
 import com.mrleonardos.codeessentials.internal.command.TeleportRequests;
 import com.mrleonardos.codeessentials.internal.engine.Cooldowns;
 import com.mrleonardos.codeessentials.internal.engine.EngineRules;
@@ -24,6 +25,7 @@ class RequestBridgeTest {
     private final PlatformStubs.Teleports teleports = new PlatformStubs.Teleports();
     private long now = 1_000L;
 
+    private Cooldowns cooldowns;
     private RequestBoard board;
     private TeleportRequests bridge;
 
@@ -145,6 +147,26 @@ class RequestBridgeTest {
     }
 
     @Test
+    void aCarriedPlayerOnCooldownComesBackAsAnAnswerWithTheRemainder() {
+        build(cooling(30));
+        bridge.send(STEVE, "Steve", ALEX, "Alex", false);
+        cooldowns.charge(STEVE, TeleportCause.TPA);
+
+        TeleportRequests.Reply reply = bridge.accept(ALEX, "Steve");
+
+        assertEquals(TeleportRequests.Answer.COOLING_DOWN, reply.answer());
+        assertEquals(
+            STEVE,
+            reply.moved()
+                .get());
+        assertEquals("Steve", reply.subject());
+        assertTrue(reply.waitMillis() > 0L, () -> "остаток обязан быть положительным: " + reply.waitMillis());
+        assertTrue(
+            teleports.asked()
+                .isEmpty());
+    }
+
+    @Test
     void denyingByNameNamesTheAskerAndMovesNobody() {
         bridge.send(STEVE, "Steve", ALEX, "Alex", false);
 
@@ -195,11 +217,7 @@ class RequestBridgeTest {
     }
 
     private void build(EngineRules rules) {
-        Cooldowns cooldowns = new Cooldowns(
-            new PlatformStubs.Memory(),
-            new PlatformStubs.Rights(),
-            () -> rules,
-            () -> now);
+        cooldowns = new Cooldowns(new PlatformStubs.Memory(), new PlatformStubs.Rights(), () -> rules, () -> now);
         board = new RequestBoard(teleports, worlds, cooldowns, () -> rules, new PlatformStubs.Now(), () -> now);
         bridge = new RequestBridge(board);
     }
@@ -209,6 +227,15 @@ class RequestBridgeTest {
             .requestRateSeconds(rateSeconds)
             .requestTimeoutSeconds(60)
             .maxPending(8)
+            .build();
+    }
+
+    private static EngineRules cooling(int tpaSeconds) {
+        return EngineRules.builder()
+            .requestRateSeconds(0)
+            .requestTimeoutSeconds(60)
+            .maxPending(8)
+            .cooldown(TeleportCause.TPA, tpaSeconds)
             .build();
     }
 }

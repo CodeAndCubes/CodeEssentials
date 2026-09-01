@@ -568,7 +568,23 @@ public final class EssentialsCommands {
             context.reply(EssentialsMessages.REQUEST_DENIED, reply.subject());
             return;
         }
+        if (reply.answer() == TeleportRequests.Answer.COOLING_DOWN) {
+            reportCooling(context, self, reply);
+            return;
+        }
         reportRequest(context, reply);
+    }
+
+    private void reportCooling(CommandContext context, UUID self, TeleportRequests.Reply reply) {
+        String wait = Durations.format(seconds(reply.waitMillis()));
+        UUID moved = reply.moved()
+            .orElse(null);
+        if (moved == null || moved.equals(self)) {
+            context.replyError(EssentialsMessages.ERROR_COOLDOWN, wait);
+            return;
+        }
+        context.replyError(EssentialsMessages.ERROR_MOVED_COOLDOWN, nameOf(moved), wait);
+        subjects.tell(moved, EssentialsMessages.ERROR_COOLDOWN, wait);
     }
 
     private void reportAccepted(CommandContext context, UUID self, TeleportRequests.Reply reply) {

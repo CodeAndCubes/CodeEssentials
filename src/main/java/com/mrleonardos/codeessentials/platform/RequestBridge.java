@@ -59,6 +59,13 @@ final class RequestBridge implements TeleportRequests {
                 return Reply.ambiguous(answer.names());
             case RATE_LIMITED:
                 return Reply.waiting(answer.waitMillis());
+            case COOLING_DOWN:
+                return Reply.cooling(
+                    subject(answer, fallback, true),
+                    answer.ticket()
+                        .map(RequestBoard.Ticket::moved)
+                        .orElse(null),
+                    answer.waitMillis());
             case SELF:
                 return Reply.of(Answer.SELF, fallback);
             case BLOCKED:

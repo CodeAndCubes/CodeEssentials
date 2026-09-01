@@ -36,6 +36,7 @@ codeessentials.error.many_requests=There is more than one request, name the play
 codeessentials.error.requests_closed=%s takes no requests
 codeessentials.error.self_target=You cannot bring yourself to yourself
 codeessentials.error.cooldown=Too early, wait %s
+codeessentials.error.moved_cooldown=%s cannot be moved yet, wait %s
 codeessentials.error.warp_denied=The warp %s is closed to you
 codeessentials.error.back_death_denied=Returning to a death spot is closed to you
 codeessentials.error.back_crossworld_denied=Returning to another dimension is closed to you

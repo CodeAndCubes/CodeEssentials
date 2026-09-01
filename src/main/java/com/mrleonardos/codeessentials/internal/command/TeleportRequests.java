@@ -22,6 +22,7 @@ public interface TeleportRequests {
         SELF,
         BLOCKED,
         RATE_LIMITED,
+        COOLING_DOWN,
         OFFLINE
     }
 
@@ -69,6 +70,16 @@ public interface TeleportRequests {
                 Collections.unmodifiableList(new ArrayList<>(names)),
                 0L,
                 null,
+                null);
+        }
+
+        public static Reply cooling(String subject, UUID moved, long waitMillis) {
+            return new Reply(
+                Answer.COOLING_DOWN,
+                subject == null ? "" : subject,
+                Collections.<String>emptyList(),
+                Math.max(0L, waitMillis),
+                moved,
                 null);
         }
 

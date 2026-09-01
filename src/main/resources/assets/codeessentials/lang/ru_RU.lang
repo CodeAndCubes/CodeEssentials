@@ -36,6 +36,7 @@ codeessentials.error.many_requests=Просьб несколько, укажит
 codeessentials.error.requests_closed=%s не принимает просьбы
 codeessentials.error.self_target=Себя к себе не перенести
 codeessentials.error.cooldown=Ещё рано, ждать %s
+codeessentials.error.moved_cooldown=%s пока не может переноситься, ждать %s
 codeessentials.error.warp_denied=К варпу %s доступа нет
 codeessentials.error.back_death_denied=Возврат к месту смерти вам не открыт
 codeessentials.error.back_crossworld_denied=Возврат в другое измерение вам не открыт

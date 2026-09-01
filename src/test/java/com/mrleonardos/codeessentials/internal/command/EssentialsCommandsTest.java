@@ -708,6 +708,38 @@ class EssentialsCommandsTest {
     }
 
     @Test
+    void aCarriedPlayerOnCooldownIsNamedToTheAcceptorAndWarnedHimself() {
+        requests.answered = TeleportRequests.Reply.cooling("Steve", ALEX, 90_000L);
+
+        TestCommandContext context = new TestCommandContext();
+        execute(root(CommandRoots.TPACCEPT), context);
+
+        assertTrue(context.last().error);
+        assertTrue(
+            context.last()
+                .is(EssentialsMessages.ERROR_MOVED_COOLDOWN),
+            "принявшему говорят, кого именно ещё нельзя нести");
+        assertEquals("Alex", context.last().arguments.get(0));
+        assertEquals("1m 30s", context.last().arguments.get(1));
+        assertEquals(Collections.singletonList(ALEX + " " + EssentialsMessages.ERROR_COOLDOWN), subjects.told);
+    }
+
+    @Test
+    void acceptingATpaHereOnYourOwnCooldownRefusesYouWithoutNamingAnybody() {
+        requests.answered = TeleportRequests.Reply.cooling("Alex", STEVE, 90_000L);
+
+        TestCommandContext context = new TestCommandContext();
+        execute(root(CommandRoots.TPACCEPT), context);
+
+        assertTrue(context.last().error);
+        assertTrue(
+            context.last()
+                .is(EssentialsMessages.ERROR_COOLDOWN));
+        assertEquals("1m 30s", context.last().arguments.get(0));
+        assertTrue(subjects.told.isEmpty(), "несут самого принявшего, в личку писать некому");
+    }
+
+    @Test
     void aFailedTpaMoveIsReportedToBothSidesInsteadOfAFalseSuccess() {
         requests.answered = TeleportRequests.Reply.accepted("Alex", ALEX, refused(ALEX, CancelReason.UNSAFE));
 
