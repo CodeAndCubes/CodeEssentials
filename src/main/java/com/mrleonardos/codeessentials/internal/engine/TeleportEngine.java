@@ -194,11 +194,6 @@ public final class TeleportEngine implements TeleportService {
         }
     }
 
-    /**
-     * Игрок сменил измерение чужой силой: порталом, чужим модом, ванильной командой. Свой же перенос
-     * приходит сюда тем же событием, поэтому работа в {@code MOVING} остаётся нетронутой: иначе
-     * кроссмирный {@code /home} гасил бы стоящую в слоте работу причиной {@code MOVED}.
-     */
     public void dimensionChanged(UUID player) {
         Slot slot = board.get(player);
         if (slot == null || (slot.active != null && slot.active.job.state() == TeleportJob.State.MOVING)) {

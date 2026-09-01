@@ -73,7 +73,6 @@ public final class CommandRoots {
         return unknown;
     }
 
-    /** Правда ли при выборе в файл добавилась хотя бы одна запись и его пора сохранить. */
     public boolean filledIn() {
         return filledIn;
     }
