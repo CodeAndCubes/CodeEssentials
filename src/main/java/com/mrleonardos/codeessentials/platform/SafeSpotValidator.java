@@ -35,6 +35,12 @@ final class SafeSpotValidator implements BlockView {
 
     @Override
     public boolean chunkLoaded(int blockX, int blockZ) {
+        return world.getChunkProvider()
+            .chunkExists(blockX >> 4, blockZ >> 4);
+    }
+
+    @Override
+    public boolean bringUpChunk(int blockX, int blockZ) {
         int chunkX = blockX >> 4;
         int chunkZ = blockZ >> 4;
         IChunkProvider provider = world.getChunkProvider();

@@ -79,7 +79,7 @@ final class ServerWorlds implements WorldAccess, SpotCheck {
         for (int dx = -SafeSpotFinder.CHUNK_EDGE; dx <= SafeSpotFinder.CHUNK_EDGE; dx += SafeSpotFinder.CHUNK_EDGE) {
             for (int dz = -SafeSpotFinder.CHUNK_EDGE; dz
                 <= SafeSpotFinder.CHUNK_EDGE; dz += SafeSpotFinder.CHUNK_EDGE) {
-                if (!view.chunkLoaded(x + dx, z + dz)) {
+                if (!view.bringUpChunk(x + dx, z + dz)) {
                     return false;
                 }
             }

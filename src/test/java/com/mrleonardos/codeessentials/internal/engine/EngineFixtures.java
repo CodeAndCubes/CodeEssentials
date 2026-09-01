@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -16,11 +17,16 @@ import com.mrleonardos.codecore.api.util.Scheduler;
 import com.mrleonardos.codeessentials.api.event.EssentialsEvents;
 import com.mrleonardos.codeessentials.api.event.TeleportEvents;
 import com.mrleonardos.codeessentials.api.model.Point;
+import com.mrleonardos.codeessentials.api.store.ChangeBatch;
+import com.mrleonardos.codeessentials.api.store.StoreResult;
 import com.mrleonardos.codeessentials.api.teleport.BlockSample;
 import com.mrleonardos.codeessentials.api.teleport.BlockView;
 import com.mrleonardos.codeessentials.api.teleport.CancelReason;
 import com.mrleonardos.codeessentials.api.teleport.TeleportJob;
+import com.mrleonardos.codeessentials.internal.service.PlayerMeta;
+import com.mrleonardos.codeessentials.internal.store.EssentialsState;
 import com.mrleonardos.codeessentials.internal.store.MemoryPlayerDataStore;
+import com.mrleonardos.codeessentials.internal.store.SingleWriter;
 import com.mrleonardos.codeessentials.internal.store.SingleWriterImpl;
 
 final class EngineFixtures {
@@ -51,12 +57,17 @@ final class EngineFixtures {
 
         private final Map<String, BlockSample> blocks = new HashMap<>();
         private final Set<String> unloaded = new HashSet<>();
+        private final Set<String> broughtUp = new LinkedHashSet<>();
         private final int dimension;
 
         private int samples;
 
         FakeWorld(int dimension) {
             this.dimension = dimension;
+        }
+
+        Set<String> broughtUp() {
+            return broughtUp;
         }
 
         FakeWorld put(int x, int y, int z, BlockSample sample) {
@@ -94,6 +105,12 @@ final class EngineFixtures {
         @Override
         public boolean chunkLoaded(int blockX, int blockZ) {
             return !unloaded.contains((blockX >> 4) + ":" + (blockZ >> 4));
+        }
+
+        @Override
+        public boolean bringUpChunk(int blockX, int blockZ) {
+            broughtUp.add((blockX >> 4) + ":" + (blockZ >> 4));
+            return chunkLoaded(blockX, blockZ);
         }
 
         @Override
@@ -141,17 +158,17 @@ final class EngineFixtures {
         }
     }
 
-    static final class FakeRights implements PlayerRights {
+    static final class FakeRights implements PlayerRights, PlayerMeta {
 
         private final Set<String> nodes = new HashSet<>();
-        private final Map<String, Integer> numbers = new HashMap<>();
+        private final Map<String, String> values = new HashMap<>();
 
         void allow(UUID player, String node) {
             nodes.add(player + "|" + node);
         }
 
         void meta(UUID player, String key, int value) {
-            numbers.put(player + "|" + key, Integer.valueOf(value));
+            values.put(player + "|" + key, String.valueOf(value));
         }
 
         @Override
@@ -161,9 +178,39 @@ final class EngineFixtures {
 
         @Override
         public OptionalInt number(UUID player, String key) {
-            Integer value = numbers.get(player + "|" + key);
-            return value == null ? OptionalInt.empty() : OptionalInt.of(value.intValue());
+            String raw = values.get(player + "|" + key);
+            return raw == null ? OptionalInt.empty() : OptionalInt.of(Integer.parseInt(raw));
         }
+
+        @Override
+        public String value(UUID player, String key, String fallback) {
+            String raw = values.get(player + "|" + key);
+            return raw == null ? fallback : raw;
+        }
+    }
+
+    static final class MemoryWriter implements SingleWriter {
+
+        private EssentialsState state = EssentialsState.empty();
+
+        StoreResult answer = StoreResult.success();
+
+        @Override
+        public EssentialsState state() {
+            return state;
+        }
+
+        @Override
+        public StoreResult commit(EssentialsState next, ChangeBatch batch) {
+            if (!answer.successful()) {
+                return answer;
+            }
+            state = next;
+            return answer;
+        }
+
+        @Override
+        public void flush() {}
     }
 
     static final class FakeMover implements Mover {

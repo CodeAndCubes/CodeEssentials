@@ -4,6 +4,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.Collections;
+
 import org.junit.jupiter.api.Test;
 
 import com.mrleonardos.codeessentials.api.model.Point;
@@ -153,6 +155,27 @@ class SafeSpotFinderTest {
             finder.find(world, Point.of(0, 8.5D, 64.0D, 8.5D), SafeSpotLimits.defaults())
                 .outcome(),
             "в середине чанка соседей спрашивать незачем");
+    }
+
+    @Test
+    void ringsAskAboutLoadedChunksAndNeverPayForTheDisk() {
+        EngineFixtures.FakeWorld world = new EngineFixtures.FakeWorld(0);
+        for (int x = -1; x <= 18; x++) {
+            for (int z = -1; z <= 18; z++) {
+                for (int y = 40; y <= 90; y++) {
+                    world.put(x, y, z, BlockSample.SOLID);
+                }
+            }
+        }
+        Point middle = Point.of(0, 8.5D, 64.0D, 8.5D);
+
+        SafeSpotResult found = finder.find(world, middle, SafeSpotLimits.of(8, 16, 8, false));
+
+        assertEquals(SafeSpotResult.Outcome.UNSAFE, found.outcome());
+        assertEquals(
+            Collections.singleton("0:0"),
+            world.broughtUp(),
+            "кольца доходят до соседних чанков, но платить за диск обязан только чанк цели");
     }
 
     @Test

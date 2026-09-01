@@ -107,7 +107,7 @@ public final class SafeSpotFinder implements SafeSpotPolicy {
     }
 
     private static boolean loadedAround(BlockView view, int x, int z) {
-        if (!view.chunkLoaded(x, z)) {
+        if (!view.bringUpChunk(x, z)) {
             return false;
         }
         for (int dx = -CHUNK_EDGE; dx <= CHUNK_EDGE; dx += CHUNK_EDGE) {
@@ -115,7 +115,7 @@ public final class SafeSpotFinder implements SafeSpotPolicy {
                 if (((x + dx) >> 4) == (x >> 4) && ((z + dz) >> 4) == (z >> 4)) {
                     continue;
                 }
-                if (!view.chunkLoaded(x + dx, z + dz)) {
+                if (!view.bringUpChunk(x + dx, z + dz)) {
                     return false;
                 }
             }
