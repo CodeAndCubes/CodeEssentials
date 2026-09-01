@@ -20,6 +20,7 @@ import com.mrleonardos.codeessentials.api.event.TeleportEvents;
 import com.mrleonardos.codeessentials.api.manage.BackService;
 import com.mrleonardos.codeessentials.api.model.BackPoint;
 import com.mrleonardos.codeessentials.api.model.Point;
+import com.mrleonardos.codeessentials.api.store.StoreResult;
 import com.mrleonardos.codeessentials.api.teleport.BlockView;
 import com.mrleonardos.codeessentials.api.teleport.CancelReason;
 import com.mrleonardos.codeessentials.api.teleport.SafeSpotPolicy;
@@ -163,7 +164,7 @@ public final class TeleportEngine implements TeleportService {
     }
 
     @Override
-    public boolean clearCooldowns(UUID player) {
+    public StoreResult clearCooldowns(UUID player) {
         return cooldowns.clear(player);
     }
 
@@ -173,16 +174,8 @@ public final class TeleportEngine implements TeleportService {
         }
         for (UUID player : new ArrayList<>(board.keySet())) {
             Slot slot = board.get(player);
-            if (slot == null) {
-                continue;
-            }
-            Work waiting = slot.next;
-            if (waiting != null) {
-                countdown(player, slot, waiting, false);
-            }
-            Work active = slot.active;
-            if (active != null && slot.active == active) {
-                countdown(player, slot, active, true);
+            if (slot != null && slot.active != null) {
+                countdown(player, slot, slot.active);
             }
         }
     }
@@ -197,8 +190,21 @@ public final class TeleportEngine implements TeleportService {
     public void died(UUID player, Point where) {
         cancelWarming(player, CancelReason.DEAD);
         if (where != null) {
-            back.record(player, BackPoint.of(where, BackPoint.Origin.DEATH, clock.getAsLong()));
+            record(player, BackPoint.of(where, BackPoint.Origin.DEATH, clock.getAsLong()));
         }
+    }
+
+    /**
+     * Игрок сменил измерение чужой силой: порталом, чужим модом, ванильной командой. Свой же перенос
+     * приходит сюда тем же событием, поэтому работа в {@code MOVING} остаётся нетронутой: иначе
+     * кроссмирный {@code /home} гасил бы стоящую в слоте работу причиной {@code MOVED}.
+     */
+    public void dimensionChanged(UUID player) {
+        Slot slot = board.get(player);
+        if (slot == null || (slot.active != null && slot.active.job.state() == TeleportJob.State.MOVING)) {
+            return;
+        }
+        cancelWarming(player, CancelReason.MOVED);
     }
 
     public void respawned(UUID player) {
@@ -279,10 +285,13 @@ public final class TeleportEngine implements TeleportService {
         work.job = work.job.done(spot);
         TeleportCause cause = work.job.cause();
         if (cause.chargesCooldown()) {
-            cooldowns.charge(player, cause);
+            StoreResult charged = cooldowns.charge(player, cause);
+            if (!charged.successful()) {
+                log.warn("Cooldown {} of {} was not written down: {}", cause.key(), player, charged);
+            }
         }
         if (cause.recordsBack() && work.origin != null) {
-            back.record(player, BackPoint.of(work.origin, BackPoint.Origin.TELEPORT, clock.getAsLong()));
+            record(player, BackPoint.of(work.origin, BackPoint.Origin.TELEPORT, clock.getAsLong()));
         }
         if (cause == TeleportCause.BACK) {
             back.pop(player);
@@ -313,7 +322,7 @@ public final class TeleportEngine implements TeleportService {
         finish(player, work, CancelReason.TIMEOUT);
     }
 
-    private void countdown(UUID player, Slot slot, Work work, boolean active) {
+    private void countdown(UUID player, Slot slot, Work work) {
         if (work.deferred || work.job.state() != TeleportJob.State.WARMUP) {
             return;
         }
@@ -324,7 +333,7 @@ public final class TeleportEngine implements TeleportService {
         if (work.warmupTicks > 0) {
             work.warmupTicks--;
         }
-        if (work.warmupTicks <= 0 && active) {
+        if (work.warmupTicks <= 0) {
             startMove(player, slot, work);
         }
     }
@@ -341,6 +350,15 @@ public final class TeleportEngine implements TeleportService {
         EngineRules current = rules.get();
         return at.horizontalDistanceTo(work.anchor) > current.moveRadius()
             || at.verticalDistanceTo(work.anchor) > current.verticalMoveRadius();
+    }
+
+    private void record(UUID player, BackPoint point) {
+        StoreResult written = back.record(player, point);
+        if (written.successful() || written.failure()
+            .orElse(null) == StoreResult.Failure.UNSUPPORTED) {
+            return;
+        }
+        log.warn("Return point of {} was not written down: {}", player, written);
     }
 
     private void cancelWarming(UUID player, CancelReason reason) {
@@ -380,6 +398,8 @@ public final class TeleportEngine implements TeleportService {
             forget(player, slot);
             return;
         }
+        promoted.anchor = world.position(player)
+            .orElse(promoted.anchor);
         begin(player, slot, promoted);
     }
 
@@ -478,9 +498,9 @@ public final class TeleportEngine implements TeleportService {
 
     private static final class Work {
 
-        private final Point anchor;
         private final Point landing;
 
+        private Point anchor;
         private TeleportJob job;
         private Point origin;
         private int warmupTicks;

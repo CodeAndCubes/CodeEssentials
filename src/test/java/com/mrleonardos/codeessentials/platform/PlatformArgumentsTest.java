@@ -19,6 +19,7 @@ import com.mrleonardos.codeessentials.api.model.HomeRecord;
 import com.mrleonardos.codeessentials.api.model.Point;
 import com.mrleonardos.codeessentials.api.model.WarpRecord;
 import com.mrleonardos.codeessentials.api.store.StoreResult;
+import com.mrleonardos.codeessentials.internal.EssentialsSettings;
 import com.mrleonardos.codeessentials.internal.store.EssentialsState;
 
 class PlatformArgumentsTest {
@@ -27,7 +28,7 @@ class PlatformArgumentsTest {
         new NameResolver(EssentialsState::empty),
         NoHomes::new,
         NoWarps::new,
-        new CorePermissions(LogManager.getLogger("CodeEssentialsTest")));
+        new CorePermissions(EssentialsSettings::defaults, LogManager.getLogger("CodeEssentialsTest")));
 
     @Test
     void aCoordinateReadsFractionsAndSigns() {

@@ -4,6 +4,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+import com.mrleonardos.codeessentials.api.store.StoreResult;
+
 /**
  * Движок переносов: единственная дорога, по которой мод двигает игрока.
  *
@@ -48,7 +50,10 @@ public interface TeleportService {
     /**
      * Снять кулдауны игрока.
      *
-     * @return правда, если было что снимать
+     * <p>
+     * Отказ {@code NOT_FOUND} значит, что снимать было нечего. Любой другой отказ значит, что
+     * хранилище не приняло правку и кулдауны остались на месте: путать эти два ответа нельзя, иначе
+     * администратор читает «кулдаунов нет» там, где на самом деле не удалась запись.
      */
-    boolean clearCooldowns(UUID player);
+    StoreResult clearCooldowns(UUID player);
 }

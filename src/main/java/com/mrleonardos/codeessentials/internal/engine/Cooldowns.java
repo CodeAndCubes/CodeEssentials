@@ -43,9 +43,9 @@ public final class Cooldowns {
         return left(player, PlayerDataStore.REQUEST_COOLDOWN_KEY);
     }
 
-    public boolean charge(UUID player, TeleportCause cause) {
+    public StoreResult charge(UUID player, TeleportCause cause) {
         if (!cause.chargesCooldown()) {
-            return false;
+            return StoreResult.success();
         }
         return write(
             player,
@@ -54,7 +54,7 @@ public final class Cooldowns {
                 .cooldownSeconds(cause));
     }
 
-    public boolean chargeRequest(UUID player) {
+    public StoreResult chargeRequest(UUID player) {
         return write(
             player,
             PlayerDataStore.REQUEST_COOLDOWN_KEY,
@@ -62,19 +62,18 @@ public final class Cooldowns {
                 .requestRateSeconds());
     }
 
-    public boolean clear(UUID player) {
+    public StoreResult clear(UUID player) {
         EssentialsState state = writer.state();
         Map<String, Long> stamps = state.cooldowns()
             .get(player);
         if (stamps == null || stamps.isEmpty()) {
-            return false;
+            return StoreResult.failure(StoreResult.Failure.NOT_FOUND, player.toString());
         }
-        StoreResult stored = writer.commit(
+        return writer.commit(
             state.withoutCooldowns(player),
             ChangeBatch.builder(SingleWriter.AUTHOR)
                 .clearCooldowns(player)
                 .build());
-        return stored.successful();
     }
 
     private long left(UUID player, String key) {
@@ -86,17 +85,16 @@ public final class Cooldowns {
         return Math.max(0L, expiresAt - clock.getAsLong());
     }
 
-    private boolean write(UUID player, String key, int seconds) {
+    private StoreResult write(UUID player, String key, int seconds) {
         if (seconds <= 0 || bypasses(player)) {
-            return false;
+            return StoreResult.success();
         }
         long expiresAt = clock.getAsLong() + EngineRules.millis(seconds);
         EssentialsState state = writer.state();
-        StoreResult stored = writer.commit(
+        return writer.commit(
             state.withCooldown(player, key, expiresAt),
             ChangeBatch.builder(SingleWriter.AUTHOR)
                 .setCooldown(player, key, expiresAt)
                 .build());
-        return stored.successful();
     }
 }

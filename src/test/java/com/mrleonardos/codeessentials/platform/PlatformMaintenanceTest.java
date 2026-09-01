@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.nio.file.Path;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import org.apache.logging.log4j.LogManager;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -50,9 +51,10 @@ class PlatformMaintenanceTest {
         StoreResult reloaded = maintenance.reloadSettings();
 
         assertEquals(
-            "warmup 3s, 1 warp(s), 0 spawn point(s)",
+            "warmup 3s, 1 warp(s), 0 spawn point(s), " + PlatformMaintenance.ROOTS_NEED_RESTART,
             reloaded.message()
-                .orElse(""));
+                .orElse(""),
+            "правки корней команд ждут перезапуска, и ответ обязан об этом сказать");
     }
 
     @Test
@@ -73,7 +75,13 @@ class PlatformMaintenanceTest {
         ConfigFile<CommandRoots> roots = configs.open(CommandRoots.spec());
         ConfigFile<WarpsFile> warps = configs.open(WarpsFile.spec());
         ConfigFile<SpawnFile> spawn = configs.open(SpawnFile.spec());
-        return new PlatformMaintenance(settings, roots, warps, spawn, refreshed::incrementAndGet);
+        return new PlatformMaintenance(
+            settings,
+            roots,
+            warps,
+            spawn,
+            refreshed::incrementAndGet,
+            LogManager.getLogger("codeessentials-test"));
     }
 
     private static void warmupOnDisk(Path path, int seconds) {

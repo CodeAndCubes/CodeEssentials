@@ -1,13 +1,13 @@
 package com.mrleonardos.codeessentials.internal.engine;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.concurrent.atomic.AtomicLong;
 
 import org.junit.jupiter.api.Test;
 
+import com.mrleonardos.codeessentials.api.store.StoreResult;
 import com.mrleonardos.codeessentials.api.teleport.TeleportCause;
 import com.mrleonardos.codeessentials.internal.store.MemoryPlayerDataStore;
 import com.mrleonardos.codeessentials.internal.store.SingleWriterImpl;
@@ -22,18 +22,26 @@ class CooldownsTest {
     void causeCooldownIsWrittenOnlyForCausesThatChargeIt() {
         Cooldowns cooldowns = cooldowns(rules(30, 10));
 
-        assertTrue(cooldowns.charge(EngineFixtures.STEVE, TeleportCause.HOME));
-        assertFalse(cooldowns.charge(EngineFixtures.STEVE, TeleportCause.ADMIN), "админский перенос бесплатен");
-        assertFalse(cooldowns.charge(EngineFixtures.STEVE, TeleportCause.RESPAWN));
+        assertTrue(
+            cooldowns.charge(EngineFixtures.STEVE, TeleportCause.HOME)
+                .successful());
+        assertTrue(
+            cooldowns.charge(EngineFixtures.STEVE, TeleportCause.ADMIN)
+                .successful());
+        assertTrue(
+            cooldowns.charge(EngineFixtures.STEVE, TeleportCause.RESPAWN)
+                .successful());
         assertEquals(30_000L, cooldowns.remaining(EngineFixtures.STEVE, TeleportCause.HOME));
-        assertEquals(0L, cooldowns.remaining(EngineFixtures.STEVE, TeleportCause.ADMIN));
+        assertEquals(0L, cooldowns.remaining(EngineFixtures.STEVE, TeleportCause.ADMIN), "админский перенос бесплатен");
     }
 
     @Test
     void causeWithoutASettingCostsNothing() {
         Cooldowns cooldowns = cooldowns(rules(0, 10));
 
-        assertFalse(cooldowns.charge(EngineFixtures.STEVE, TeleportCause.HOME));
+        assertTrue(
+            cooldowns.charge(EngineFixtures.STEVE, TeleportCause.HOME)
+                .successful());
         assertEquals(0L, cooldowns.remaining(EngineFixtures.STEVE, TeleportCause.HOME));
     }
 
@@ -64,8 +72,10 @@ class CooldownsTest {
         assertTrue(cooldowns.bypasses(EngineFixtures.STEVE));
         assertEquals(0L, cooldowns.remaining(EngineFixtures.STEVE, TeleportCause.HOME));
         assertEquals(0L, cooldowns.remainingRequest(EngineFixtures.STEVE));
-        assertFalse(cooldowns.charge(EngineFixtures.STEVE, TeleportCause.HOME));
-        assertFalse(cooldowns.chargeRequest(EngineFixtures.STEVE));
+        cooldowns.charge(EngineFixtures.STEVE, TeleportCause.HOME);
+        cooldowns.chargeRequest(EngineFixtures.STEVE);
+        assertEquals(0L, cooldowns.remaining(EngineFixtures.STEVE, TeleportCause.HOME));
+        assertEquals(0L, cooldowns.remainingRequest(EngineFixtures.STEVE));
     }
 
     @Test
@@ -127,14 +137,38 @@ class CooldownsTest {
     void clearWipesEverythingAndAnswersHonestlyOnAnEmptyPlayer() {
         Cooldowns cooldowns = cooldowns(rules(30, 10));
 
-        assertFalse(cooldowns.clear(EngineFixtures.STEVE), "снимать было нечего");
+        assertEquals(
+            StoreResult.Failure.NOT_FOUND,
+            cooldowns.clear(EngineFixtures.STEVE)
+                .failure()
+                .get(),
+            "снимать было нечего");
 
         cooldowns.charge(EngineFixtures.STEVE, TeleportCause.HOME);
         cooldowns.chargeRequest(EngineFixtures.STEVE);
 
-        assertTrue(cooldowns.clear(EngineFixtures.STEVE));
+        assertTrue(
+            cooldowns.clear(EngineFixtures.STEVE)
+                .successful());
         assertEquals(0L, cooldowns.remaining(EngineFixtures.STEVE, TeleportCause.HOME));
         assertEquals(0L, cooldowns.remainingRequest(EngineFixtures.STEVE));
+    }
+
+    @Test
+    void aRefusedWriteIsNotTheSameAnswerAsAnEmptyPlayer() {
+        EngineFixtures.MemoryWriter writer = new EngineFixtures.MemoryWriter();
+        Cooldowns cooldowns = new Cooldowns(writer, rights, () -> rules(30, 10), clock::get);
+        cooldowns.charge(EngineFixtures.STEVE, TeleportCause.HOME);
+        writer.answer = StoreResult.failure(StoreResult.Failure.PROVIDER_FAILED, "disk is full");
+
+        StoreResult refused = cooldowns.clear(EngineFixtures.STEVE);
+
+        assertEquals(
+            StoreResult.Failure.PROVIDER_FAILED,
+            refused.failure()
+                .get(),
+            "отказ записи нельзя выдавать за «кулдаунов нет»");
+        assertEquals(30_000L, cooldowns.remaining(EngineFixtures.STEVE, TeleportCause.HOME));
     }
 
     private Cooldowns cooldowns(EngineRules rules) {

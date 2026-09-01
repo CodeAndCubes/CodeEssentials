@@ -1,4 +1,4 @@
-package com.mrleonardos.codeessentials.platform;
+package com.mrleonardos.codeessentials.internal.service;
 
 import java.util.Optional;
 import java.util.UUID;
@@ -6,15 +6,14 @@ import java.util.UUID;
 import com.mrleonardos.codeessentials.api.model.PlayerRecord;
 import com.mrleonardos.codeessentials.api.store.ChangeBatch;
 import com.mrleonardos.codeessentials.api.store.StoreResult;
-import com.mrleonardos.codeessentials.internal.service.PlayerStateWriter;
 import com.mrleonardos.codeessentials.internal.store.EssentialsState;
 import com.mrleonardos.codeessentials.internal.store.SingleWriter;
 
-final class StateWriter implements PlayerStateWriter {
+public final class StateWriter implements PlayerStateWriter {
 
     private final SingleWriter writer;
 
-    StateWriter(SingleWriter writer) {
+    public StateWriter(SingleWriter writer) {
         this.writer = writer;
     }
 
@@ -32,7 +31,7 @@ final class StateWriter implements PlayerStateWriter {
         return writer.commit(state.withPlayer(next), batch);
     }
 
-    StoreResult remember(UUID player, String name) {
+    public StoreResult remember(UUID player, String name) {
         PlayerRecord held = player(player).orElse(null);
         if (held != null && name.equals(held.name())) {
             return StoreResult.success();

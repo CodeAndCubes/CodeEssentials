@@ -9,11 +9,11 @@ import net.minecraftforge.event.entity.living.LivingDeathEvent;
 import com.mrleonardos.codecore.api.util.Scheduler;
 import com.mrleonardos.codeessentials.api.model.Point;
 import com.mrleonardos.codeessentials.api.store.StoreResult;
-import com.mrleonardos.codeessentials.api.teleport.CancelReason;
 import com.mrleonardos.codeessentials.api.teleport.TeleportCause;
 import com.mrleonardos.codeessentials.api.teleport.TeleportRequest;
 import com.mrleonardos.codeessentials.internal.engine.RequestBoard;
 import com.mrleonardos.codeessentials.internal.engine.TeleportEngine;
+import com.mrleonardos.codeessentials.internal.service.StateWriter;
 import com.mrleonardos.codeessentials.internal.store.SingleWriter;
 
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
@@ -66,7 +66,7 @@ public final class ForgeLifecycle {
 
     @SubscribeEvent
     public void onDimensionChange(PlayerEvent.PlayerChangedDimensionEvent event) {
-        engine.cancel(id(event.player), CancelReason.MOVED);
+        engine.dimensionChanged(id(event.player));
     }
 
     @SubscribeEvent

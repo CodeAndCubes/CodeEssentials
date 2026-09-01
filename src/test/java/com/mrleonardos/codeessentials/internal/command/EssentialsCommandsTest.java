@@ -12,13 +12,18 @@ import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 
+import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.core.LogEvent;
+import org.apache.logging.log4j.core.appender.AbstractAppender;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import com.mrleonardos.codecore.api.command.ArgumentSpec;
 import com.mrleonardos.codecore.api.command.CommandMessages;
 import com.mrleonardos.codecore.api.command.CommandNode;
+import com.mrleonardos.codeessentials.api.EssentialsLimits;
 import com.mrleonardos.codeessentials.api.model.BackPoint;
 import com.mrleonardos.codeessentials.api.model.HomeRecord;
 import com.mrleonardos.codeessentials.api.model.Point;
@@ -37,6 +42,8 @@ class EssentialsCommandsTest {
     private static final UUID ALEX = UUID.fromString("00000000-0000-0000-0000-00000000000b");
     private static final Point HERE = Point.of(0, 10.0D, 64.0D, 20.0D, 90.0F, 0.0F);
     private static final Point NETHER = Point.of(-1, 5.0D, 70.0D, 5.0D);
+
+    private final Logger log = LogManager.getLogger("codeessentials-test");
 
     private EssentialsSettings settings;
     private CommandRoots book;
@@ -74,7 +81,7 @@ class EssentialsCommandsTest {
             CommandTestStubs.arguments(),
             subjects,
             maintenance,
-            LogManager.getLogger("codeessentials-test"));
+            log);
         subjects.self = STEVE;
         subjects.position = HERE;
         subjects.actor = "Steve";
@@ -186,7 +193,7 @@ class EssentialsCommandsTest {
 
         TestCommandContext context = new TestCommandContext().set("who", "Steve")
             .set("target", "Alex");
-        execute(root(CommandRoots.TP), context);
+        List<String> audit = record(() -> execute(root(CommandRoots.TP), context));
 
         assertEquals(1, teleports.asked.size());
         TeleportRequest asked = teleports.asked.get(0);
@@ -197,6 +204,69 @@ class EssentialsCommandsTest {
         assertTrue(
             context.last()
                 .is(EssentialsMessages.MOVED));
+        assertTrue(
+            audit.stream()
+                .anyMatch(line -> line.contains("console") && line.contains("Steve") && line.contains(NETHER.print())),
+            () -> "админский перенос обязан оставить строку с автором: " + audit);
+    }
+
+    @Test
+    void aRefusedAdminMoveWritesNothingToTheAudit() {
+        subjects.actor = "console";
+        teleports.outcome = TeleportJob.State.FAILED;
+        teleports.reason = CancelReason.UNSAFE;
+
+        TestCommandContext context = new TestCommandContext().set("who", "Steve")
+            .set("target", "Alex");
+        List<String> audit = record(() -> execute(root(CommandRoots.TP), context));
+
+        assertTrue(audit.isEmpty(), () -> "несостоявшийся перенос в журнале не значится: " + audit);
+    }
+
+    @Test
+    void theAuditOfAdminMovesGoesQuietWithTheFlagOff() {
+        settings.audit.logChanges = false;
+        subjects.actor = "console";
+        teleports.outcome = TeleportJob.State.DONE;
+
+        TestCommandContext context = new TestCommandContext().set("who", "Steve")
+            .set("target", "Alex");
+        List<String> audit = record(() -> execute(root(CommandRoots.TP), context));
+
+        assertTrue(audit.isEmpty(), () -> audit.toString());
+    }
+
+    private List<String> record(Runnable work) {
+        org.apache.logging.log4j.core.Logger held = (org.apache.logging.log4j.core.Logger) log;
+        CapturingAppender appender = new CapturingAppender();
+        Level before = held.getLevel();
+        held.addAppender(appender);
+        held.setLevel(Level.INFO);
+        try {
+            work.run();
+        } finally {
+            held.removeAppender(appender);
+            held.setLevel(before);
+        }
+        return appender.lines;
+    }
+
+    /** Подставной приёмник строк аудита: ловит отформатированные сообщения. */
+    private static final class CapturingAppender extends AbstractAppender {
+
+        private final List<String> lines = new ArrayList<>();
+
+        CapturingAppender() {
+            super("capturing", null, null, true);
+            start();
+        }
+
+        @Override
+        public void append(LogEvent event) {
+            lines.add(
+                event.getMessage()
+                    .getFormattedMessage());
+        }
     }
 
     @Test
@@ -385,6 +455,44 @@ class EssentialsCommandsTest {
     }
 
     @Test
+    void movingAWarpKeepsTheDescriptionAHumanWrote() {
+        warps.stored.put("shop", WarpRecord.of("shop", NETHER, "рынок у ратуши"));
+
+        TestCommandContext context = new TestCommandContext().set("name", "shop");
+        execute(root(CommandRoots.SETWARP), context);
+
+        assertTrue(
+            context.last()
+                .is(EssentialsMessages.WARP_MOVED));
+        assertEquals(
+            "рынок у ратуши",
+            warps.stored.get("shop")
+                .description());
+        assertEquals(
+            HERE,
+            warps.stored.get("shop")
+                .point());
+    }
+
+    @Test
+    void aWarpNameOverTheCeilingNeverReachesTheStore() {
+        String tooLong = new String(new char[EssentialsLimits.DEFAULT_NAME_LENGTH + 1]).replace('\0', 'a');
+
+        TestCommandContext go = new TestCommandContext().set("name", tooLong);
+        execute(root(CommandRoots.WARP), go);
+        assertTrue(
+            go.last()
+                .is(EssentialsMessages.ERROR_INVALID_NAME));
+        assertTrue(teleports.asked.isEmpty());
+
+        TestCommandContext drop = new TestCommandContext().set("name", tooLong);
+        execute(root(CommandRoots.DELWARP), drop);
+        assertTrue(
+            drop.last()
+                .is(EssentialsMessages.ERROR_INVALID_NAME));
+    }
+
+    @Test
     void setspawnWritesTheDimensionOnlyWithTheFlag() {
         TestCommandContext global = new TestCommandContext();
         execute(root(CommandRoots.SETSPAWN), global);
@@ -556,6 +664,76 @@ class EssentialsCommandsTest {
     }
 
     @Test
+    void anOfflineNickNeverReachesTheBoard() {
+        subjects.online.remove(ALEX);
+
+        TestCommandContext context = new TestCommandContext().set("player", "Alex");
+        execute(root(CommandRoots.TPA), context);
+
+        assertTrue(context.last().error);
+        assertTrue(
+            context.last()
+                .is(EssentialsMessages.ERROR_PLAYER_OFFLINE));
+        assertNull(requests.askedTarget, "просьба офлайн-игроку не занимает место в доске");
+    }
+
+    @Test
+    void acceptingATpaTellsTheCarriedPlayerAboutTheWarmup() {
+        requests.answered = TeleportRequests.Reply.accepted("Alex", ALEX, warming(ALEX));
+
+        TestCommandContext context = new TestCommandContext();
+        execute(root(CommandRoots.TPACCEPT), context);
+
+        assertTrue(
+            context.last()
+                .is(EssentialsMessages.REQUEST_ACCEPTED));
+        assertEquals(
+            Arrays.asList(ALEX + " " + EssentialsMessages.REQUEST_TAKEN, ALEX + " " + EssentialsMessages.WARMUP),
+            subjects.told,
+            "переносимый обязан узнать и о согласии, и о задержке");
+    }
+
+    @Test
+    void acceptingATpaHereWarnsTheAcceptorHimself() {
+        requests.answered = TeleportRequests.Reply.accepted("Alex", STEVE, warming(STEVE));
+
+        TestCommandContext context = new TestCommandContext();
+        execute(root(CommandRoots.TPACCEPT), context);
+
+        assertTrue(
+            context.last()
+                .is(EssentialsMessages.WARMUP),
+            "по /tpahere идёт сам принявший, значит и предупреждение его");
+        assertTrue(subjects.told.isEmpty(), "самому себе мод в личку не пишет");
+    }
+
+    @Test
+    void aFailedTpaMoveIsReportedToBothSidesInsteadOfAFalseSuccess() {
+        requests.answered = TeleportRequests.Reply.accepted("Alex", ALEX, refused(ALEX, CancelReason.UNSAFE));
+
+        TestCommandContext context = new TestCommandContext();
+        execute(root(CommandRoots.TPACCEPT), context);
+
+        assertTrue(context.last().error);
+        assertTrue(
+            context.last()
+                .is(EssentialsMessages.FAILED_UNSAFE),
+            "принявший не должен читать «принято», когда перенос не состоялся");
+        assertEquals(Collections.singletonList(ALEX + " " + EssentialsMessages.FAILED_UNSAFE), subjects.told);
+    }
+
+    private static TeleportJob warming(UUID moved) {
+        return TeleportJob.starting(
+            5L,
+            TeleportRequest.builder(moved, HERE, TeleportCause.TPA)
+                .build());
+    }
+
+    private static TeleportJob refused(UUID moved, CancelReason reason) {
+        return warming(moved).stopped(reason);
+    }
+
+    @Test
     void acceptPassesTheNickOnAndReportsWhatTheBoardDid() {
         TestCommandContext single = new TestCommandContext();
         execute(root(CommandRoots.TPACCEPT), single);
@@ -663,6 +841,27 @@ class EssentialsCommandsTest {
     }
 
     @Test
+    void ecancelSaysWhenItTookTheWaitingJobInsteadOfTheStartedOne() {
+        teleports.active = TeleportJob.starting(
+            1L,
+            TeleportRequest.builder(STEVE, HERE, TeleportCause.HOME)
+                .build())
+            .moving();
+        teleports.cancelled = TeleportJob.starting(
+            2L,
+            TeleportRequest.builder(STEVE, NETHER, TeleportCause.SPAWN)
+                .build());
+
+        TestCommandContext context = new TestCommandContext();
+        execute(root(CommandRoots.ECANCEL), context);
+
+        assertTrue(
+            context.last()
+                .is(EssentialsMessages.CANCELLED_WAITING),
+            "снята не та работа, о которой думает игрок, значит ответ обязан это сказать");
+    }
+
+    @Test
     void ecancelWithoutAJobSaysSo() {
         TestCommandContext context = new TestCommandContext();
         execute(root(CommandRoots.ECANCEL), context);
@@ -717,7 +916,7 @@ class EssentialsCommandsTest {
             cleared.last()
                 .is(EssentialsMessages.COOLDOWNS_CLEARED));
 
-        teleports.hadCooldowns = false;
+        teleports.clearAnswer = StoreResult.failure(StoreResult.Failure.NOT_FOUND, "Alex");
         TestCommandContext nothing = new TestCommandContext().set("player", "Alex")
             .set("action", "clear");
         execute(branch, nothing);
@@ -725,6 +924,21 @@ class EssentialsCommandsTest {
             nothing.last()
                 .is(EssentialsMessages.COOLDOWNS_EMPTY),
             "снимать было нечего, значит и рапорт другой");
+    }
+
+    @Test
+    void aRefusedCooldownWriteIsNotReportedAsAnEmptyPlayer() {
+        teleports.clearAnswer = StoreResult.failure(StoreResult.Failure.PROVIDER_FAILED, "disk is full");
+
+        TestCommandContext context = new TestCommandContext().set("player", "Alex")
+            .set("action", "clear");
+        execute(child(root(CommandRoots.ESSENTIALS), "cooldown"), context);
+
+        assertTrue(context.last().error);
+        assertTrue(
+            context.last()
+                .is(EssentialsMessages.ERROR_PROVIDER_FAILED),
+            "отказ хранилища нельзя выдавать за «кулдаунов нет»");
     }
 
     @Test

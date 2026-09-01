@@ -213,8 +213,8 @@ class EssentialsApiTest {
         }
 
         @Override
-        public boolean clearCooldowns(UUID player) {
-            return false;
+        public StoreResult clearCooldowns(UUID player) {
+            return StoreResult.failure(StoreResult.Failure.NOT_FOUND, player.toString());
         }
     }
 

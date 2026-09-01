@@ -2,6 +2,7 @@ package com.mrleonardos.codeessentials.platform;
 
 import java.util.OptionalInt;
 import java.util.UUID;
+import java.util.function.Supplier;
 
 import net.minecraft.command.ICommandSender;
 
@@ -9,22 +10,37 @@ import org.apache.logging.log4j.Logger;
 
 import com.mrleonardos.codecore.api.CodeApi;
 import com.mrleonardos.codecore.api.service.PermissionService;
+import com.mrleonardos.codeessentials.internal.EssentialsSettings;
 import com.mrleonardos.codeessentials.internal.engine.PlayerRights;
 import com.mrleonardos.codeessentials.internal.service.PlayerMeta;
 
 final class CorePermissions implements PlayerRights, PlayerMeta {
 
+    private final Supplier<EssentialsSettings> settings;
+    private final Supplier<PermissionService> lookup;
     private final Logger log;
     private boolean missingTold;
 
-    CorePermissions(Logger log) {
+    CorePermissions(Supplier<EssentialsSettings> settings, Logger log) {
+        this(settings, CorePermissions::fromRegistry, log);
+    }
+
+    CorePermissions(Supplier<EssentialsSettings> settings, Supplier<PermissionService> lookup, Logger log) {
+        this.settings = settings;
+        this.lookup = lookup;
         this.log = log;
+    }
+
+    private static PermissionService fromRegistry() {
+        return CodeApi.services()
+            .find(PermissionService.class)
+            .orElse(null);
     }
 
     @Override
     public boolean has(UUID player, String node) {
         PermissionService service = service();
-        return service != null && service.has(player, node);
+        return explained(player, node, service != null && service.has(player, node));
     }
 
     @Override
@@ -50,13 +66,19 @@ final class CorePermissions implements PlayerRights, PlayerMeta {
 
     boolean allowed(ICommandSender sender, String node) {
         PermissionService service = service();
-        return service == null || service.has(sender, node);
+        return explained(sender.getCommandSenderName(), node, service != null && service.has(sender, node));
+    }
+
+    private boolean explained(Object subject, String node, boolean allowed) {
+        if (!allowed && settings.get()
+            .logChecks()) {
+            log.debug("{} has no {}", subject, node);
+        }
+        return allowed;
     }
 
     private PermissionService service() {
-        PermissionService held = CodeApi.services()
-            .find(PermissionService.class)
-            .orElse(null);
+        PermissionService held = lookup.get();
         if (held == null && !missingTold) {
             missingTold = true;
             log.error("No mod holds PermissionService, every check of CodeEssentials answers no");

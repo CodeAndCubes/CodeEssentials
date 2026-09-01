@@ -136,7 +136,8 @@ final class CommandTestStubs {
         CancelReason reason = CancelReason.UNSAFE;
         Point landing;
         TeleportJob cancelled;
-        boolean hadCooldowns = true;
+        TeleportJob active;
+        StoreResult clearAnswer = StoreResult.success();
         long nextId;
 
         @Override
@@ -158,6 +159,10 @@ final class CommandTestStubs {
 
         @Override
         public Optional<TeleportJob> job(UUID player) {
+            if (active != null && active.player()
+                .equals(player)) {
+                return Optional.of(active);
+            }
             for (TeleportJob job : running) {
                 if (job.player()
                     .equals(player)) {
@@ -184,8 +189,8 @@ final class CommandTestStubs {
         }
 
         @Override
-        public boolean clearCooldowns(UUID player) {
-            return hadCooldowns;
+        public StoreResult clearCooldowns(UUID player) {
+            return clearAnswer;
         }
     }
 

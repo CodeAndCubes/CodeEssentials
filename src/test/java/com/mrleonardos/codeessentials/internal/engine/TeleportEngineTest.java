@@ -19,6 +19,9 @@ import com.mrleonardos.codeessentials.api.teleport.CancelReason;
 import com.mrleonardos.codeessentials.api.teleport.TeleportCause;
 import com.mrleonardos.codeessentials.api.teleport.TeleportJob;
 import com.mrleonardos.codeessentials.api.teleport.TeleportRequest;
+import com.mrleonardos.codeessentials.internal.EssentialsSettings;
+import com.mrleonardos.codeessentials.internal.service.BackServiceImpl;
+import com.mrleonardos.codeessentials.internal.service.StateWriter;
 import com.mrleonardos.codeessentials.internal.store.SingleWriterImpl;
 
 class TeleportEngineTest {
@@ -37,13 +40,15 @@ class TeleportEngineTest {
     private final EngineFixtures.TestScheduler scheduler = new EngineFixtures.TestScheduler();
     private final EngineFixtures.Watcher watcher = new EngineFixtures.Watcher(EssentialsEvents.Kind.INFORM);
 
+    private EssentialsSettings settings;
     private SingleWriterImpl writer;
     private Cooldowns cooldowns;
-    private BackLog back;
+    private BackServiceImpl back;
     private TeleportEngine engine;
 
     @BeforeEach
     void setUp() {
+        settings = new EssentialsSettings();
         worlds.world(0)
             .plate(63, -10, 10);
         worlds.world(-1)
@@ -516,8 +521,71 @@ class TeleportEngineTest {
         clock.set(clock.get() + 10_000L);
 
         assertEquals(20_000L, engine.cooldownRemaining(EngineFixtures.STEVE, TeleportCause.HOME));
-        assertTrue(engine.clearCooldowns(EngineFixtures.STEVE));
+        assertTrue(
+            engine.clearCooldowns(EngineFixtures.STEVE)
+                .successful());
         assertEquals(0L, engine.cooldownRemaining(EngineFixtures.STEVE, TeleportCause.HOME));
+    }
+
+    @Test
+    void theWaitingJobStartsItsWarmupOnlyAfterTheSlotIsFree() {
+        mover.holdOn();
+        ask(TeleportCause.ADMIN, HOME);
+        ask(TeleportCause.HOME, SPAWN);
+
+        tick(WARMUP_TICKS);
+
+        assertEquals(1, mover.moves(), "стоящая работа не тикает, пока идёт чужой перенос");
+
+        mover.land();
+        tick(WARMUP_TICKS - 1);
+
+        assertEquals(1, mover.moves(), "задержка отсчитывается с момента, когда работа стала активной");
+
+        tick(1);
+
+        assertEquals(2, mover.moves());
+    }
+
+    @Test
+    void thePromotedJobTakesItsAnchorFromWhereThePlayerStandsNow() {
+        mover.holdOn();
+        ask(TeleportCause.ADMIN, HOME);
+        ask(TeleportCause.HOME, SPAWN);
+        worlds.standing(EngineFixtures.STEVE, Point.of(0, 8.5D, 64.0D, 8.5D));
+
+        mover.land();
+        tick(WARMUP_TICKS);
+
+        assertEquals(2, mover.moves(), "якорь берётся при повышении работы, а не при подаче просьбы");
+    }
+
+    @Test
+    void theEngineDoesNotCancelTheWorkItIsCarryingItself() {
+        mover.holdOn();
+        ask(TeleportCause.ADMIN, HOME);
+        ask(TeleportCause.HOME, SPAWN);
+
+        engine.dimensionChanged(EngineFixtures.STEVE);
+
+        assertTrue(
+            watcher.cancelled()
+                .isEmpty(),
+            "смена измерения своим же переносом не гасит стоящую работу");
+    }
+
+    @Test
+    void aForeignDimensionChangeStillCancelsTheWarmup() {
+        ask(TeleportCause.HOME, HOME);
+
+        engine.dimensionChanged(EngineFixtures.STEVE);
+
+        assertEquals(
+            CancelReason.MOVED,
+            watcher.cancelled()
+                .get(0)
+                .reason()
+                .get());
     }
 
     @Test
@@ -567,7 +635,7 @@ class TeleportEngineTest {
     private void build(EngineRules rules) {
         writer = EngineFixtures.writer(clock::get);
         cooldowns = new Cooldowns(writer, rights, () -> rules, clock::get);
-        back = new BackLog(writer, rights, () -> rules);
+        back = new BackServiceImpl(() -> settings, rights, new StateWriter(writer), LOG);
         engine = new TeleportEngine(
             () -> rules,
             worlds,

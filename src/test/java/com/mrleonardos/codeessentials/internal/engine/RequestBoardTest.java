@@ -15,6 +15,9 @@ import org.junit.jupiter.api.Test;
 import com.mrleonardos.codeessentials.api.model.Point;
 import com.mrleonardos.codeessentials.api.teleport.TeleportCause;
 import com.mrleonardos.codeessentials.api.teleport.TeleportJob;
+import com.mrleonardos.codeessentials.internal.EssentialsSettings;
+import com.mrleonardos.codeessentials.internal.service.BackServiceImpl;
+import com.mrleonardos.codeessentials.internal.service.StateWriter;
 
 class RequestBoardTest {
 
@@ -287,7 +290,11 @@ class RequestBoardTest {
             new SafeSpotFinder(),
             mover,
             cooldowns,
-            new BackLog(EngineFixtures.writer(clock::get), rights, () -> rules),
+            new BackServiceImpl(
+                EssentialsSettings::defaults,
+                rights,
+                new StateWriter(EngineFixtures.writer(clock::get)),
+                LOG),
             events,
             scheduler,
             clock::get,

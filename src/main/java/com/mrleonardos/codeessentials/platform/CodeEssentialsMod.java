@@ -29,7 +29,6 @@ import com.mrleonardos.codeessentials.internal.EssentialsSettings;
 import com.mrleonardos.codeessentials.internal.Listeners;
 import com.mrleonardos.codeessentials.internal.command.CommandRoots;
 import com.mrleonardos.codeessentials.internal.command.EssentialsCommands;
-import com.mrleonardos.codeessentials.internal.engine.BackLog;
 import com.mrleonardos.codeessentials.internal.engine.Cooldowns;
 import com.mrleonardos.codeessentials.internal.engine.EngineRules;
 import com.mrleonardos.codeessentials.internal.engine.RequestBoard;
@@ -39,6 +38,7 @@ import com.mrleonardos.codeessentials.internal.service.BackServiceImpl;
 import com.mrleonardos.codeessentials.internal.service.HomeServiceImpl;
 import com.mrleonardos.codeessentials.internal.service.SpawnFile;
 import com.mrleonardos.codeessentials.internal.service.SpawnServiceImpl;
+import com.mrleonardos.codeessentials.internal.service.StateWriter;
 import com.mrleonardos.codeessentials.internal.service.WarpServiceImpl;
 import com.mrleonardos.codeessentials.internal.service.WarpsFile;
 import com.mrleonardos.codeessentials.internal.store.EssentialsState;
@@ -101,7 +101,7 @@ public final class CodeEssentialsMod {
 
         Supplier<EssentialsSettings> config = settings::get;
         Listeners listeners = new Listeners();
-        CorePermissions rights = new CorePermissions(LOG);
+        CorePermissions rights = new CorePermissions(config, LOG);
 
         store = JsonPlayerDataStore.create(configs, ceilings, clock, LOG);
         SafeSpotFinder builtin = new SafeSpotFinder();
@@ -172,8 +172,9 @@ public final class CodeEssentialsMod {
             new RequestBridge(board),
             new PlatformArguments(names, homeHolder, warpHolder, rights),
             new SenderSubjects(names, rights),
-            new PlatformMaintenance(settings, roots, warpsFile, spawnFile, this::refresh),
+            new PlatformMaintenance(settings, roots, warpsFile, spawnFile, this::refresh, LOG),
             LOG).register(CodeApi.commands());
+        completeRoots();
 
         tracker = new PlayerTracker(engine);
         lifecycle = new ForgeLifecycle(engine, board, state, new RespawnChoice(spawnHolder), threads);
@@ -206,6 +207,23 @@ public final class CodeEssentialsMod {
         return rules;
     }
 
+    private void completeRoots() {
+        if (!roots.get()
+            .filledIn()) {
+            return;
+        }
+        try {
+            roots.save();
+            LOG.info("Records of the new command root(s) are written to {}.json", EssentialsSettings.COMMANDS_FILE);
+        } catch (RuntimeException failure) {
+            LOG.warn(
+                "{}.json was not written, the new command root(s) stay only in memory: {}",
+                EssentialsSettings.COMMANDS_FILE,
+                failure.toString(),
+                failure);
+        }
+    }
+
     private void refresh() {
         ceilings = settings.get()
             .ceilings(LOG);
@@ -224,24 +242,12 @@ public final class CodeEssentialsMod {
             .requestRateSeconds(current.requestRateSeconds())
             .requestTimeoutSeconds(current.requestTimeoutSeconds(held))
             .maxPending(current.maxPending(held))
-            .backDepth(current.defaultBackDepth(held))
-            .backTrigger(trigger(current))
             .safeSpot(current.spotLimits(held));
+        current.backMode(LOG);
         for (TeleportCause cause : TeleportCause.values()) {
             builder.cooldown(cause, current.cooldownSeconds(cause));
         }
         return builder.build();
-    }
-
-    private BackLog.Trigger trigger(EssentialsSettings current) {
-        String mode = current.backMode(LOG);
-        if (EssentialsSettings.BACK_NONE.equals(mode)) {
-            return BackLog.Trigger.OFF;
-        }
-        if (EssentialsSettings.BACK_TELEPORT.equals(mode)) {
-            return BackLog.Trigger.TELEPORT;
-        }
-        return EssentialsSettings.BACK_DEATH.equals(mode) ? BackLog.Trigger.DEATH : BackLog.Trigger.BOTH;
     }
 
     private String provider() {

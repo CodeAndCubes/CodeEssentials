@@ -367,6 +367,10 @@ public final class EssentialsCommands {
             return;
         }
         String name = lower(context.get(NAME));
+        if (!ceilings().acceptsName(name)) {
+            context.replyError(EssentialsMessages.ERROR_INVALID_NAME, name, EssentialsLimits.NAME_PATTERN);
+            return;
+        }
         WarpRecord record = warps.get()
             .warp(name)
             .orElse(null);
@@ -424,11 +428,13 @@ public final class EssentialsCommands {
             return;
         }
         WarpService service = warps.get();
-        boolean overwrite = service.warp(name)
-            .isPresent();
-        StoreResult written = service.setWarp(WarpRecord.of(name, here, ""), !force, subjects.actorOf(context));
+        WarpRecord previous = service.warp(name)
+            .orElse(null);
+        String description = previous == null ? "" : previous.description();
+        StoreResult written = service
+            .setWarp(WarpRecord.of(name, here, description), !force, subjects.actorOf(context));
         if (written.successful()) {
-            context.reply(overwrite ? EssentialsMessages.WARP_MOVED : EssentialsMessages.WARP_SET, name);
+            context.reply(previous == null ? EssentialsMessages.WARP_SET : EssentialsMessages.WARP_MOVED, name);
             return;
         }
         context.replyError(EssentialsMessages.failureKey(written), name);
@@ -436,6 +442,10 @@ public final class EssentialsCommands {
 
     private void deleteWarp(CommandContext context) {
         String name = lower(context.get(NAME));
+        if (!ceilings().acceptsName(name)) {
+            context.replyError(EssentialsMessages.ERROR_INVALID_NAME, name, EssentialsLimits.NAME_PATTERN);
+            return;
+        }
         StoreResult written = warps.get()
             .deleteWarp(name, subjects.actorOf(context));
         if (written.successful()) {
@@ -527,11 +537,8 @@ public final class EssentialsCommands {
         if (self == null) {
             return;
         }
-        String wanted = context.get(PLAYER);
-        UUID target = subjects.resolve(wanted)
-            .orElse(null);
+        UUID target = target(context, context.get(PLAYER));
         if (target == null) {
-            context.replyError(EssentialsMessages.ERROR_UNKNOWN_PLAYER, wanted);
             return;
         }
         TeleportRequests.Reply reply = requests.send(self, nameOf(self), target, nameOf(target), here);
@@ -554,7 +561,7 @@ public final class EssentialsCommands {
         String from = context.has(PLAYER) ? context.get(PLAYER) : null;
         TeleportRequests.Reply reply = accept ? requests.accept(self, from) : requests.deny(self, from);
         if (reply.answer() == TeleportRequests.Answer.ACCEPTED) {
-            context.reply(EssentialsMessages.REQUEST_ACCEPTED, reply.subject());
+            reportAccepted(context, self, reply);
             return;
         }
         if (reply.answer() == TeleportRequests.Answer.DENIED) {
@@ -562,6 +569,36 @@ public final class EssentialsCommands {
             return;
         }
         reportRequest(context, reply);
+    }
+
+    private void reportAccepted(CommandContext context, UUID self, TeleportRequests.Reply reply) {
+        TeleportJob job = reply.job()
+            .orElse(null);
+        UUID moved = reply.moved()
+            .orElse(null);
+        boolean carried = moved != null && !moved.equals(self);
+        if (job != null && job.finished() && !job.applied()) {
+            String outcome = EssentialsMessages.outcomeKey(
+                job.reason()
+                    .orElse(CancelReason.BY_COMMAND));
+            context.replyError(outcome);
+            if (carried) {
+                subjects.tell(moved, outcome);
+            }
+            return;
+        }
+        context.reply(EssentialsMessages.REQUEST_ACCEPTED, reply.subject());
+        if (carried) {
+            subjects.tell(moved, EssentialsMessages.REQUEST_TAKEN, nameOf(self));
+        }
+        if (job == null || job.state() != TeleportJob.State.WARMUP) {
+            return;
+        }
+        if (carried) {
+            subjects.tell(moved, EssentialsMessages.WARMUP);
+            return;
+        }
+        context.reply(EssentialsMessages.WARMUP);
     }
 
     private void withdraw(CommandContext context) {
@@ -683,8 +720,20 @@ public final class EssentialsCommands {
 
     private void move(CommandContext context, UUID who, Point destination, boolean force) {
         TeleportJob job = start(context, who, destination, TeleportCause.ADMIN, !force);
-        if (job != null && job.applied()) {
-            context.reply(EssentialsMessages.MOVED, nameOf(who), destination.print());
+        if (job == null || !job.applied()) {
+            return;
+        }
+        context.reply(EssentialsMessages.MOVED, nameOf(who), destination.print());
+        if (settings.get()
+            .logChanges()) {
+            log.info(
+                "{} moved {} to {}",
+                job.request()
+                    .actor(),
+                nameOf(who),
+                job.landing()
+                    .orElse(destination)
+                    .print());
         }
     }
 
@@ -710,11 +759,17 @@ public final class EssentialsCommands {
             context.replyError(CommandMessages.NO_PERMISSION);
             return;
         }
-        TeleportJob stopped = teleports.get()
-            .cancel(target, CancelReason.BY_COMMAND)
+        TeleportService service = teleports.get();
+        TeleportJob active = service.job(target)
+            .orElse(null);
+        TeleportJob stopped = service.cancel(target, CancelReason.BY_COMMAND)
             .orElse(null);
         if (stopped == null) {
             context.replyError(EssentialsMessages.ERROR_NO_JOB, nameOf(target));
+            return;
+        }
+        if (active != null && active.id() != stopped.id()) {
+            context.reply(EssentialsMessages.CANCELLED_WAITING, nameOf(target));
             return;
         }
         if (other) {
@@ -765,10 +820,17 @@ public final class EssentialsCommands {
                 context.replyError(EssentialsMessages.ERROR_BAD_ARGUMENTS, action);
                 return;
             }
-            boolean cleared = service.clearCooldowns(target);
-            context.reply(
-                cleared ? EssentialsMessages.COOLDOWNS_CLEARED : EssentialsMessages.COOLDOWNS_EMPTY,
-                nameOf(target));
+            StoreResult cleared = service.clearCooldowns(target);
+            if (cleared.successful()) {
+                context.reply(EssentialsMessages.COOLDOWNS_CLEARED, nameOf(target));
+                return;
+            }
+            if (cleared.failure()
+                .orElse(null) == StoreResult.Failure.NOT_FOUND) {
+                context.reply(EssentialsMessages.COOLDOWNS_EMPTY, nameOf(target));
+                return;
+            }
+            context.replyError(EssentialsMessages.failureKey(cleared), nameOf(target));
             return;
         }
         List<String> lines = new ArrayList<>();

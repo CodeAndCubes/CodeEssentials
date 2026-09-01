@@ -21,7 +21,6 @@ public final class EngineRules {
     public static final int DEFAULT_REQUEST_TIMEOUT_SECONDS = 60;
     public static final int DEFAULT_MAX_PENDING = 8;
     public static final int DEFAULT_SWEEP_TICKS = 20;
-    public static final int DEFAULT_BACK_DEPTH = 1;
     public static final int TICKS_PER_SECOND = 20;
 
     private static final EngineRules DEFAULTS = builder().build();
@@ -36,8 +35,6 @@ public final class EngineRules {
     private final int requestTimeoutSeconds;
     private final int maxPending;
     private final int sweepTicks;
-    private final int backDepth;
-    private final BackLog.Trigger backTrigger;
     private final SafeSpotLimits safeSpot;
     private final EssentialsLimits limits;
 
@@ -53,8 +50,6 @@ public final class EngineRules {
         this.requestTimeoutSeconds = builder.limits.clampRequestTimeoutSeconds(builder.requestTimeoutSeconds);
         this.maxPending = builder.limits.clampPendingRequests(builder.maxPending);
         this.sweepTicks = Math.max(1, builder.sweepTicks);
-        this.backDepth = builder.limits.clampBackDepth(builder.backDepth);
-        this.backTrigger = builder.backTrigger;
         this.safeSpot = builder.safeSpot;
     }
 
@@ -102,14 +97,6 @@ public final class EngineRules {
         return sweepTicks;
     }
 
-    public int backDepth() {
-        return backDepth;
-    }
-
-    public BackLog.Trigger backTrigger() {
-        return backTrigger;
-    }
-
     public SafeSpotLimits safeSpot() {
         return safeSpot;
     }
@@ -140,8 +127,7 @@ public final class EngineRules {
             + maxPending
             + "x"
             + requestTimeoutSeconds
-            + "s, back "
-            + backDepth;
+            + "s";
     }
 
     public static final class Builder {
@@ -157,8 +143,6 @@ public final class EngineRules {
         private int requestTimeoutSeconds = DEFAULT_REQUEST_TIMEOUT_SECONDS;
         private int maxPending = DEFAULT_MAX_PENDING;
         private int sweepTicks = DEFAULT_SWEEP_TICKS;
-        private int backDepth = DEFAULT_BACK_DEPTH;
-        private BackLog.Trigger backTrigger = BackLog.Trigger.BOTH;
         private SafeSpotLimits safeSpot = SafeSpotLimits.defaults();
         private EssentialsLimits limits = EssentialsLimits.defaults();
 
@@ -216,16 +200,6 @@ public final class EngineRules {
 
         public Builder sweepTicks(int value) {
             sweepTicks = value;
-            return this;
-        }
-
-        public Builder backDepth(int value) {
-            backDepth = value;
-            return this;
-        }
-
-        public Builder backTrigger(BackLog.Trigger value) {
-            backTrigger = Objects.requireNonNull(value, "value");
             return this;
         }
 
