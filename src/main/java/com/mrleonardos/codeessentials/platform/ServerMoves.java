@@ -6,7 +6,7 @@ import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.WorldServer;
 
-import com.mrleonardos.codecore.api.util.Players;
+import com.mrleonardos.codecore.platform.Players;
 import com.mrleonardos.codeessentials.api.model.Point;
 
 final class ServerMoves implements WorldMover.Moves {

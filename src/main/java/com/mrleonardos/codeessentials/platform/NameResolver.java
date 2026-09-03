@@ -9,8 +9,8 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.function.Supplier;
 
-import com.mrleonardos.codecore.api.util.PlayerNames;
-import com.mrleonardos.codecore.api.util.Players;
+import com.mrleonardos.codecore.platform.PlayerNames;
+import com.mrleonardos.codecore.platform.Players;
 import com.mrleonardos.codeessentials.api.model.PlayerRecord;
 import com.mrleonardos.codeessentials.internal.store.EssentialsState;
 
