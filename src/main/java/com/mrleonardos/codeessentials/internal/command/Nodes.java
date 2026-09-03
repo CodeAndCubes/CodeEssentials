@@ -18,6 +18,8 @@ public final class Nodes {
     public static final String BACK_DEATH = "codeessentials.back.death";
     public static final String BACK_CROSSWORLD = "codeessentials.back.crossworld";
 
+    public static final String RANDOM = "codeessentials.rtp";
+
     public static final String TPA = "codeessentials.tpa";
     public static final String TPA_HERE = "codeessentials.tpa.here";
     public static final String TPA_TOGGLE = "codeessentials.tpa.toggle";

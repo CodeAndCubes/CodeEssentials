@@ -1,5 +1,6 @@
 package com.mrleonardos.codeessentials.platform;
 
+import java.util.Random;
 import java.util.function.LongSupplier;
 import java.util.function.Supplier;
 
@@ -37,6 +38,7 @@ import com.mrleonardos.codeessentials.internal.command.CommandRoots;
 import com.mrleonardos.codeessentials.internal.command.EssentialsCommands;
 import com.mrleonardos.codeessentials.internal.engine.Cooldowns;
 import com.mrleonardos.codeessentials.internal.engine.EngineRules;
+import com.mrleonardos.codeessentials.internal.engine.RandomFinder;
 import com.mrleonardos.codeessentials.internal.engine.RequestBoard;
 import com.mrleonardos.codeessentials.internal.engine.SafeSpotFinder;
 import com.mrleonardos.codeessentials.internal.engine.TeleportEngine;
@@ -208,6 +210,7 @@ public final class CodeEssentialsMod {
             spawnHolder,
             ServiceBridge.holder(BackService.class, backs),
             new RequestBridge(board),
+            new RandomFinder(worlds, () -> policy, this::rules, spawnHolder, new Random()),
             new PlatformArguments(names, homeHolder, warpHolder, rights),
             new SenderSubjects(names, rights),
             new PlatformMaintenance(
@@ -272,6 +275,8 @@ public final class CodeEssentialsMod {
         ceilings = current.ceilings(LOG);
         shared = SharedSettings.of(configs, section.get());
         current.backMode(LOG);
+        current.centerMode(LOG);
+        current.failureMode(LOG);
         rules = EssentialsRules.of(current, shared, ceilings);
     }
 

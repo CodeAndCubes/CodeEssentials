@@ -16,6 +16,7 @@ public final class EssentialsMessages {
     public static final String USAGE_SPAWN = "codeessentials.command.usage.spawn";
     public static final String USAGE_SETSPAWN = "codeessentials.command.usage.setspawn";
     public static final String USAGE_BACK = "codeessentials.command.usage.back";
+    public static final String USAGE_RTP = "codeessentials.command.usage.rtp";
     public static final String USAGE_TPA = "codeessentials.command.usage.tpa";
     public static final String USAGE_TPAHERE = "codeessentials.command.usage.tpahere";
     public static final String USAGE_TPACCEPT = "codeessentials.command.usage.tpaccept";
@@ -48,6 +49,9 @@ public final class EssentialsMessages {
     public static final String ERROR_BACK_DEATH_DENIED = "codeessentials.error.back_death_denied";
     public static final String ERROR_BACK_CROSSWORLD_DENIED = "codeessentials.error.back_crossworld_denied";
     public static final String ERROR_BAD_ARGUMENTS = "codeessentials.error.bad_arguments";
+    public static final String ERROR_RTP_OFF = "codeessentials.error.rtp_off";
+    public static final String ERROR_RTP_WORLD = "codeessentials.error.rtp_world";
+    public static final String ERROR_RTP_NOT_FOUND = "codeessentials.error.rtp_not_found";
     public static final String ERROR_HOME_LIMIT = "codeessentials.error.home_limit";
     public static final String ERROR_NOT_FOUND = "codeessentials.error.not_found";
     public static final String ERROR_ALREADY_EXISTS = "codeessentials.error.already_exists";
@@ -71,6 +75,7 @@ public final class EssentialsMessages {
     public static final String WARP_DELETED = "codeessentials.message.warp_deleted";
     public static final String SPAWN_GLOBAL_SET = "codeessentials.message.spawn_global_set";
     public static final String SPAWN_DIMENSION_SET = "codeessentials.message.spawn_dimension_set";
+    public static final String RTP_SPAWN = "codeessentials.message.rtp_spawn";
     public static final String WARMUP = "codeessentials.message.warmup";
     public static final String CORRECTED = "codeessentials.message.corrected";
     public static final String MOVED = "codeessentials.message.moved";

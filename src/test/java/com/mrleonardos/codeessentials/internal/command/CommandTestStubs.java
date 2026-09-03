@@ -377,6 +377,18 @@ final class CommandTestStubs {
         }
     }
 
+    static final class Spots implements RandomSpots {
+
+        final List<Point> asked = new ArrayList<>();
+        Reply reply = Reply.refused(Outcome.NOT_FOUND, 8);
+
+        @Override
+        public Reply find(Point origin) {
+            asked.add(origin);
+            return reply;
+        }
+    }
+
     static final class Maintenance implements EssentialsMaintenance {
 
         StoreResult answer = StoreResult.success("config, commands, warps, spawn");

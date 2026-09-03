@@ -39,6 +39,7 @@ public final class CommandRoots {
     public static final String SPAWN = "spawn";
     public static final String SETSPAWN = "setspawn";
     public static final String BACK = "back";
+    public static final String RTP = "rtp";
     public static final String TPA = "tpa";
     public static final String TPAHERE = "tpahere";
     public static final String TPACCEPT = "tpaccept";
@@ -181,6 +182,7 @@ public final class CommandRoots {
         table.put(SPAWN, none());
         table.put(SETSPAWN, none());
         table.put(BACK, none());
+        table.put(RTP, none());
         table.put(TPA, none());
         table.put(TPAHERE, none());
         table.put(TPACCEPT, Collections.singletonList("tpyes"));

@@ -57,6 +57,7 @@ class EssentialsCommandsTest {
     private CommandTestStubs.Spawns spawns;
     private CommandTestStubs.Backs backs;
     private CommandTestStubs.Requests requests;
+    private CommandTestStubs.Spots spots;
     private CommandTestStubs.Maintenance maintenance;
     private EssentialsCommands commands;
 
@@ -72,6 +73,7 @@ class EssentialsCommandsTest {
         spawns = new CommandTestStubs.Spawns();
         backs = new CommandTestStubs.Backs();
         requests = new CommandTestStubs.Requests();
+        spots = new CommandTestStubs.Spots();
         maintenance = new CommandTestStubs.Maintenance();
         commands = new EssentialsCommands(
             () -> settings,
@@ -83,6 +85,7 @@ class EssentialsCommandsTest {
             () -> spawns,
             () -> backs,
             requests,
+            spots,
             CommandTestStubs.arguments(),
             subjects,
             maintenance,
@@ -116,6 +119,7 @@ class EssentialsCommandsTest {
         assertEquals(Nodes.SPAWN, root(CommandRoots.SPAWN).permissionNode());
         assertEquals(Nodes.SPAWN_SET, root(CommandRoots.SETSPAWN).permissionNode());
         assertEquals(Nodes.BACK, root(CommandRoots.BACK).permissionNode());
+        assertEquals(Nodes.RANDOM, root(CommandRoots.RTP).permissionNode());
         assertEquals(Nodes.TPA, root(CommandRoots.TPA).permissionNode());
         assertEquals(Nodes.TPA_HERE, root(CommandRoots.TPAHERE).permissionNode());
         assertEquals(Nodes.TPA, root(CommandRoots.TPACCEPT).permissionNode());
@@ -1082,6 +1086,107 @@ class EssentialsCommandsTest {
                 CommandRoots.factoryAliases()
                     .keySet()),
             service.names());
+    }
+
+    @Test
+    void theRandomTeleportGoesThroughTheEngineWithItsOwnCause() {
+        Point target = Point.of(0, 1200.5D, 70.0D, -800.5D);
+        spots.reply = RandomSpots.Reply.found(target, 2);
+
+        execute(root(CommandRoots.RTP), new TestCommandContext());
+
+        assertEquals(Collections.singletonList(HERE), spots.asked, "поиск считает кольцо от места игрока");
+        assertEquals(1, teleports.asked.size());
+        TeleportRequest asked = teleports.asked.get(0);
+        assertEquals(TeleportCause.RANDOM, asked.cause());
+        assertEquals(target, asked.destination());
+        assertTrue(asked.safeSpot(), "движок проверяет точку ещё раз");
+    }
+
+    @Test
+    void theRandomTeleportWaitsForItsOwnCooldown() {
+        teleports.cooldowns.put(TeleportCause.RANDOM, Long.valueOf(30_000L));
+
+        TestCommandContext context = new TestCommandContext();
+        execute(root(CommandRoots.RTP), context);
+
+        assertTrue(
+            context.last()
+                .is(EssentialsMessages.ERROR_COOLDOWN));
+        assertTrue(spots.asked.isEmpty(), "ждущему игроку чанки не перебирают");
+        assertTrue(teleports.asked.isEmpty());
+    }
+
+    @Test
+    void everyRefusalOfTheRandomSearchHasItsOwnLine() {
+        assertSpotRefusal(RandomSpots.Outcome.OFF, EssentialsMessages.ERROR_RTP_OFF);
+        assertSpotRefusal(RandomSpots.Outcome.WRONG_WORLD, EssentialsMessages.ERROR_RTP_WORLD);
+        assertSpotRefusal(RandomSpots.Outcome.NO_WORLD, EssentialsMessages.FAILED_DIMENSION_MISSING);
+        assertSpotRefusal(RandomSpots.Outcome.NOT_FOUND, EssentialsMessages.ERROR_RTP_NOT_FOUND);
+    }
+
+    @Test
+    void theRefusalCountsTheTries() {
+        spots.reply = RandomSpots.Reply.refused(RandomSpots.Outcome.NOT_FOUND, 12);
+
+        TestCommandContext context = new TestCommandContext();
+        execute(root(CommandRoots.RTP), context);
+
+        assertEquals(Integer.valueOf(12), context.last().arguments.get(0));
+    }
+
+    @Test
+    void theSpawnFallbackIsToldBeforeTheMove() {
+        Point spawn = Point.of(0, 0.5D, 64.0D, 0.5D);
+        spots.reply = RandomSpots.Reply.spawn(spawn, 8);
+
+        TestCommandContext context = new TestCommandContext();
+        execute(root(CommandRoots.RTP), context);
+
+        assertTrue(
+            context.sent()
+                .get(0)
+                .is(EssentialsMessages.RTP_SPAWN));
+        assertEquals(
+            Integer.valueOf(8),
+            context.sent()
+                .get(0).arguments.get(0));
+        assertEquals(
+            TeleportCause.RANDOM,
+            teleports.asked.get(0)
+                .cause());
+        assertEquals(
+            spawn,
+            teleports.asked.get(0)
+                .destination());
+    }
+
+    @Test
+    void theConsoleIsNotSentAnywhereRandomly() {
+        subjects.self = null;
+
+        TestCommandContext context = new TestCommandContext();
+        execute(root(CommandRoots.RTP), context);
+
+        assertTrue(
+            context.last()
+                .is(EssentialsMessages.ERROR_SENDER_NOT_PLAYER));
+        assertTrue(spots.asked.isEmpty());
+    }
+
+    private void assertSpotRefusal(RandomSpots.Outcome outcome, String key) {
+        teleports.asked.clear();
+        spots.reply = RandomSpots.Reply.refused(outcome, 8);
+
+        TestCommandContext context = new TestCommandContext();
+        execute(root(CommandRoots.RTP), context);
+
+        assertTrue(context.last().error, key);
+        assertTrue(
+            context.last()
+                .is(key),
+            key);
+        assertTrue(teleports.asked.isEmpty(), key);
     }
 
     private void assertRefusal(String rootName, String key) {

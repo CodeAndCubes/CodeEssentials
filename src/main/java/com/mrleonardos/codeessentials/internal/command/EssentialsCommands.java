@@ -66,6 +66,7 @@ public final class EssentialsCommands {
     private final Supplier<SpawnService> spawns;
     private final Supplier<BackService> backs;
     private final TeleportRequests requests;
+    private final RandomSpots spots;
     private final EssentialsArguments arguments;
     private final EssentialsSubjects subjects;
     private final EssentialsMaintenance maintenance;
@@ -74,7 +75,7 @@ public final class EssentialsCommands {
     public EssentialsCommands(Supplier<EssentialsSettings> settings, Supplier<SharedSettings> shared,
         Supplier<CommandRoots> roots, Supplier<TeleportService> teleports, Supplier<HomeService> homes,
         Supplier<WarpService> warps, Supplier<SpawnService> spawns, Supplier<BackService> backs,
-        TeleportRequests requests, EssentialsArguments arguments, EssentialsSubjects subjects,
+        TeleportRequests requests, RandomSpots spots, EssentialsArguments arguments, EssentialsSubjects subjects,
         EssentialsMaintenance maintenance, Logger log) {
         this.settings = settings;
         this.shared = shared;
@@ -85,6 +86,7 @@ public final class EssentialsCommands {
         this.spawns = spawns;
         this.backs = backs;
         this.requests = requests;
+        this.spots = spots;
         this.arguments = arguments;
         this.subjects = subjects;
         this.maintenance = maintenance;
@@ -163,6 +165,11 @@ public final class EssentialsCommands {
                 .permission(Nodes.BACK)
                 .usage(EssentialsMessages.USAGE_BACK)
                 .executes(this::back));
+        all.add(
+            CommandNode.literal(CommandRoots.RTP)
+                .permission(Nodes.RANDOM)
+                .usage(EssentialsMessages.USAGE_RTP)
+                .executes(this::randomSpot));
         all.add(
             CommandNode.literal(CommandRoots.TPA)
                 .permission(Nodes.TPA)
@@ -534,6 +541,47 @@ public final class EssentialsCommands {
             return;
         }
         start(context, self, top.point(), TeleportCause.BACK, true);
+    }
+
+    private void randomSpot(CommandContext context) {
+        UUID self = playerOf(context);
+        if (self == null) {
+            return;
+        }
+        Point here = positionOf(context);
+        if (here == null) {
+            return;
+        }
+        if (waiting(context, self, TeleportCause.RANDOM)) {
+            return;
+        }
+        RandomSpots.Reply reply = spots.find(here);
+        Point target = reply.spot()
+            .orElse(null);
+        if (target == null) {
+            reportSpot(context, reply);
+            return;
+        }
+        if (reply.outcome() == RandomSpots.Outcome.SPAWN) {
+            context.reply(EssentialsMessages.RTP_SPAWN, Integer.valueOf(reply.attempts()));
+        }
+        start(context, self, target, TeleportCause.RANDOM, true);
+    }
+
+    private void reportSpot(CommandContext context, RandomSpots.Reply reply) {
+        switch (reply.outcome()) {
+            case OFF:
+                context.replyError(EssentialsMessages.ERROR_RTP_OFF);
+                return;
+            case WRONG_WORLD:
+                context.replyError(EssentialsMessages.ERROR_RTP_WORLD);
+                return;
+            case NO_WORLD:
+                context.replyError(EssentialsMessages.FAILED_DIMENSION_MISSING);
+                return;
+            default:
+                context.replyError(EssentialsMessages.ERROR_RTP_NOT_FOUND, Integer.valueOf(reply.attempts()));
+        }
     }
 
     private void ask(CommandContext context, boolean here) {
