@@ -9,6 +9,10 @@ import java.util.OptionalInt;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
 
+import com.mrleonardos.codecore.api.actor.PlayerRef;
+import com.mrleonardos.codecore.api.command.CommandSender;
+import com.mrleonardos.codecore.api.command.SenderKind;
+import com.mrleonardos.codecore.api.command.SenderPosition;
 import com.mrleonardos.codecore.api.util.Scheduler;
 import com.mrleonardos.codeessentials.api.model.Point;
 import com.mrleonardos.codeessentials.api.store.ChangeBatch;
@@ -27,6 +31,62 @@ import com.mrleonardos.codeessentials.internal.store.SingleWriter;
 final class PlatformStubs {
 
     private PlatformStubs() {}
+
+    /** Отправитель команды без единого типа игры: вид, ссылка на игрока и позиция задаются прямо. */
+    static final class Sender implements CommandSender {
+
+        private final SenderKind kind;
+        private final String name;
+        private PlayerRef player;
+        private SenderPosition position;
+
+        private Sender(SenderKind kind, String name) {
+            this.kind = kind;
+            this.name = name;
+        }
+
+        static Sender of(SenderKind kind, String name) {
+            return new Sender(kind, name);
+        }
+
+        static Sender player(UUID id, String name) {
+            Sender sender = new Sender(SenderKind.PLAYER, name);
+            sender.player = PlayerRef.of(id, name);
+            return sender;
+        }
+
+        static Sender block(int dimension, int x, int y, int z) {
+            Sender sender = new Sender(SenderKind.COMMAND_BLOCK, "@");
+            sender.position = new SenderPosition(dimension, x, y, z);
+            return sender;
+        }
+
+        @Override
+        public SenderKind kind() {
+            return kind;
+        }
+
+        @Override
+        public Optional<PlayerRef> player() {
+            return Optional.ofNullable(player);
+        }
+
+        @Override
+        public String name() {
+            return name;
+        }
+
+        @Override
+        public Optional<SenderPosition> position() {
+            return Optional.ofNullable(position);
+        }
+
+        @Override
+        public void reply(String translationKey, Object... arguments) {}
+
+        @Override
+        public void replyError(String translationKey, Object... arguments) {}
+    }
 
     static final class Worlds implements WorldAccess {
 

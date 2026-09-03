@@ -11,9 +11,6 @@ import java.util.OptionalInt;
 import java.util.UUID;
 
 import net.minecraft.command.ICommandSender;
-import net.minecraft.util.ChunkCoordinates;
-import net.minecraft.util.IChatComponent;
-import net.minecraft.world.World;
 
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
@@ -24,6 +21,7 @@ import org.junit.jupiter.api.Test;
 
 import com.mrleonardos.codecore.api.adapter.PermissionCapabilities;
 import com.mrleonardos.codecore.api.adapter.RoleCapability;
+import com.mrleonardos.codecore.api.command.SenderKind;
 import com.mrleonardos.codecore.api.service.PermissionService;
 import com.mrleonardos.codeessentials.internal.EssentialsSettings;
 import com.mrleonardos.codeessentials.internal.SharedFixtures;
@@ -41,7 +39,9 @@ class CorePermissionsTest {
     @Test
     void withoutAPermissionServiceBothWaysOfAskingAnswerNo() {
         assertFalse(permissions.has(STEVE, NODE), "проверка по uuid закрыта");
-        assertFalse(permissions.allowed(new Console(), NODE), "проверка по отправителю обязана отвечать так же");
+        assertFalse(
+            permissions.allowed(PlatformStubs.Sender.of(SenderKind.CONSOLE, "Server"), NODE),
+            "проверка по отправителю обязана отвечать так же");
     }
 
     @Test
@@ -169,37 +169,6 @@ class CorePermissionsTest {
         public String meta(UUID player, String key, String fallback) {
             asked++;
             return answer == null ? fallback : answer;
-        }
-    }
-
-    private static final class Console implements ICommandSender {
-
-        @Override
-        public String getCommandSenderName() {
-            return "console";
-        }
-
-        @Override
-        public IChatComponent func_145748_c_() {
-            return null;
-        }
-
-        @Override
-        public void addChatMessage(IChatComponent message) {}
-
-        @Override
-        public boolean canCommandSenderUseCommand(int level, String command) {
-            return false;
-        }
-
-        @Override
-        public ChunkCoordinates getPlayerCoordinates() {
-            return null;
-        }
-
-        @Override
-        public World getEntityWorld() {
-            return null;
         }
     }
 }

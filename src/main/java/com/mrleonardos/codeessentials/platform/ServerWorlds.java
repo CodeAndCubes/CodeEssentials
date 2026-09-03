@@ -4,13 +4,11 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Supplier;
 
-import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.world.WorldServer;
 import net.minecraftforge.common.DimensionManager;
 
 import org.apache.logging.log4j.Logger;
 
-import com.mrleonardos.codecore.platform.Players;
 import com.mrleonardos.codeessentials.api.model.Point;
 import com.mrleonardos.codeessentials.api.teleport.BlockView;
 import com.mrleonardos.codeessentials.api.teleport.SafeSpotPolicy;
@@ -40,8 +38,7 @@ final class ServerWorlds implements WorldAccess, SpotCheck {
 
     @Override
     public Optional<Point> position(UUID player) {
-        EntityPlayerMP online = Players.online(player);
-        return online == null ? Optional.<Point>empty() : Optional.of(Points.of(online));
+        return Points.of(player);
     }
 
     @Override

@@ -8,9 +8,11 @@ import java.util.function.Supplier;
 
 import net.minecraft.command.CommandException;
 import net.minecraft.command.ICommandSender;
-import net.minecraft.entity.player.EntityPlayerMP;
 
+import com.mrleonardos.codecore.api.actor.PlayerRef;
 import com.mrleonardos.codecore.api.command.ArgumentType;
+import com.mrleonardos.codecore.api.command.CommandSender;
+import com.mrleonardos.codecore.platform.Senders;
 import com.mrleonardos.codeessentials.api.manage.HomeService;
 import com.mrleonardos.codeessentials.api.manage.WarpService;
 import com.mrleonardos.codeessentials.internal.command.EssentialsArguments;
@@ -61,12 +63,15 @@ final class PlatformArguments implements EssentialsArguments {
 
             @Override
             public List<String> suggestions(ICommandSender sender, String partial) {
-                if (!(sender instanceof EntityPlayerMP)) {
+                PlayerRef player = Senders.of(sender)
+                    .player()
+                    .orElse(null);
+                if (player == null) {
                     return Collections.emptyList();
                 }
                 return startingWith(
                     homes.get()
-                        .homes(((EntityPlayerMP) sender).getUniqueID())
+                        .homes(player.id())
                         .keySet(),
                     partial);
             }
@@ -84,11 +89,12 @@ final class PlatformArguments implements EssentialsArguments {
 
             @Override
             public List<String> suggestions(ICommandSender sender, String partial) {
+                CommandSender who = Senders.of(sender);
                 List<String> open = new ArrayList<>();
                 for (String name : warps.get()
                     .warps()
                     .keySet()) {
-                    if (permissions.allowed(sender, Nodes.warpGo(name))) {
+                    if (permissions.allowed(who, Nodes.warpGo(name))) {
                         open.add(name);
                     }
                 }

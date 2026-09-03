@@ -1,7 +1,11 @@
 package com.mrleonardos.codeessentials.platform;
 
+import java.util.Optional;
+import java.util.UUID;
+
 import net.minecraft.entity.player.EntityPlayerMP;
 
+import com.mrleonardos.codecore.platform.Players;
 import com.mrleonardos.codeessentials.api.model.Point;
 
 final class Points {
@@ -11,5 +15,10 @@ final class Points {
     static Point of(EntityPlayerMP player) {
         return Point
             .of(player.dimension, player.posX, player.posY, player.posZ, player.rotationYaw, player.rotationPitch);
+    }
+
+    static Optional<Point> of(UUID player) {
+        EntityPlayerMP online = Players.online(player);
+        return online == null ? Optional.<Point>empty() : Optional.of(of(online));
     }
 }

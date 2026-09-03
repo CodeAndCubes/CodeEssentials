@@ -1,0 +1,128 @@
+package com.mrleonardos.codeessentials.platform;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+
+import net.minecraft.command.ICommandSender;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.util.ChunkCoordinates;
+import net.minecraft.util.IChatComponent;
+import net.minecraft.world.World;
+
+import org.apache.logging.log4j.LogManager;
+import org.junit.jupiter.api.Test;
+
+import com.mrleonardos.codecore.api.command.CommandContext;
+import com.mrleonardos.codecore.api.command.SenderKind;
+import com.mrleonardos.codeessentials.internal.SharedSettings;
+import com.mrleonardos.codeessentials.internal.store.EssentialsState;
+
+class SenderSubjectsTest {
+
+    private static final UUID STEVE = UUID.fromString("00000000-0000-0000-0000-00000000000a");
+
+    private final SenderSubjects subjects = new SenderSubjects(
+        new NameResolver(EssentialsState::empty),
+        new CorePermissions(SharedSettings::defaults, () -> null, LogManager.getLogger("CodeEssentialsTest")));
+
+    @Test
+    void aCommandBlockSignsItselfWithItsCoordinates() {
+        assertEquals("commandblock@100,64,-30", SenderSubjects.actorOf(PlatformStubs.Sender.block(0, 100, 64, -30)));
+    }
+
+    @Test
+    void aCommandBlockWithoutCoordinatesStaysJustACommandBlock() {
+        assertEquals("commandblock", SenderSubjects.actorOf(PlatformStubs.Sender.of(SenderKind.COMMAND_BLOCK, "@")));
+    }
+
+    @Test
+    void theOtherThreeKindsSignThemselvesAsBefore() {
+        assertEquals("Steve", SenderSubjects.actorOf(PlatformStubs.Sender.player(STEVE, "Steve")));
+        assertEquals("console", SenderSubjects.actorOf(PlatformStubs.Sender.of(SenderKind.CONSOLE, "Server")));
+        assertEquals("rcon", SenderSubjects.actorOf(PlatformStubs.Sender.of(SenderKind.RCON, "Rcon")));
+    }
+
+    @Test
+    void aSenderWithoutAPlayerHasNoPositionAndThatIsTheAnswer() {
+        CommandContext console = new ConsoleContext();
+
+        assertEquals(Optional.empty(), subjects.playerOf(console));
+        assertEquals(Optional.empty(), subjects.positionOf(console), "у консоли координат не бывает");
+    }
+
+    /** Контекст с игровым отправителем: подписи ядра переедут на CommandSender третьим шагом. */
+    private static final class ConsoleContext implements CommandContext {
+
+        private final List<String> replies = new ArrayList<>();
+
+        @Override
+        public ICommandSender sender() {
+            return new Console();
+        }
+
+        @Override
+        public EntityPlayerMP player() {
+            return null;
+        }
+
+        @Override
+        public <T> T get(String name) {
+            throw new IllegalArgumentException(name);
+        }
+
+        @Override
+        public <T> T getOrDefault(String name, T fallback) {
+            return fallback;
+        }
+
+        @Override
+        public boolean has(String name) {
+            return false;
+        }
+
+        @Override
+        public void reply(String translationKey, Object... arguments) {
+            replies.add(translationKey);
+        }
+
+        @Override
+        public void replyError(String translationKey, Object... arguments) {
+            replies.add(translationKey);
+        }
+    }
+
+    private static final class Console implements ICommandSender {
+
+        @Override
+        public String getCommandSenderName() {
+            return "Server";
+        }
+
+        @Override
+        public IChatComponent func_145748_c_() {
+            return null;
+        }
+
+        @Override
+        public void addChatMessage(IChatComponent message) {}
+
+        @Override
+        public boolean canCommandSenderUseCommand(int level, String command) {
+            return true;
+        }
+
+        @Override
+        public ChunkCoordinates getPlayerCoordinates() {
+            return null;
+        }
+
+        @Override
+        public World getEntityWorld() {
+            return null;
+        }
+    }
+}

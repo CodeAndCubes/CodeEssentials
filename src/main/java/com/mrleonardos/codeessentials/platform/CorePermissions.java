@@ -5,13 +5,12 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.function.Supplier;
 
-import net.minecraft.command.ICommandSender;
-
 import org.apache.logging.log4j.Logger;
 
 import com.mrleonardos.codecore.api.CodeApi;
 import com.mrleonardos.codecore.api.adapter.PermissionCapabilities;
 import com.mrleonardos.codecore.api.adapter.RoleCapability;
+import com.mrleonardos.codecore.api.command.CommandSender;
 import com.mrleonardos.codecore.api.service.PermissionService;
 import com.mrleonardos.codeessentials.internal.EssentialsSettings;
 import com.mrleonardos.codeessentials.internal.SharedSettings;
@@ -85,9 +84,9 @@ final class CorePermissions implements PlayerRights, PlayerMeta {
         return service == null ? fallback : service.meta(player, key, fallback);
     }
 
-    boolean allowed(ICommandSender sender, String node) {
+    boolean allowed(CommandSender sender, String node) {
         PermissionService service = service();
-        return explained(sender.getCommandSenderName(), node, service != null && service.has(sender, node));
+        return explained(sender.name(), node, service != null && service.has(sender, node));
     }
 
     private boolean explained(Object subject, String node, boolean allowed) {

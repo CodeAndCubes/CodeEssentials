@@ -3,15 +3,13 @@ package com.mrleonardos.codeessentials.platform;
 import java.util.Optional;
 import java.util.UUID;
 
-import net.minecraft.command.ICommandSender;
-import net.minecraft.command.server.CommandBlockLogic;
-import net.minecraft.entity.player.EntityPlayerMP;
-import net.minecraft.network.rcon.RConConsoleSource;
-import net.minecraft.util.ChatComponentTranslation;
-import net.minecraft.util.ChunkCoordinates;
-
+import com.mrleonardos.codecore.api.actor.PlayerRef;
 import com.mrleonardos.codecore.api.command.CommandContext;
-import com.mrleonardos.codecore.api.util.Players;
+import com.mrleonardos.codecore.api.command.CommandSender;
+import com.mrleonardos.codecore.api.command.SenderKind;
+import com.mrleonardos.codecore.api.command.SenderPosition;
+import com.mrleonardos.codecore.platform.Players;
+import com.mrleonardos.codecore.platform.Senders;
 import com.mrleonardos.codeessentials.api.model.Point;
 import com.mrleonardos.codeessentials.internal.command.EssentialsSubjects;
 
@@ -31,30 +29,28 @@ final class SenderSubjects implements EssentialsSubjects {
 
     @Override
     public Optional<UUID> playerOf(CommandContext context) {
-        EntityPlayerMP player = context.player();
-        return player == null ? Optional.<UUID>empty() : Optional.of(player.getUniqueID());
+        return senderOf(context).player()
+            .map(PlayerRef::id);
     }
 
     @Override
     public String actorOf(CommandContext context) {
-        return actorOf(context.sender());
+        return actorOf(senderOf(context));
     }
 
     @Override
     public boolean allowed(CommandContext context, String node) {
-        return permissions.allowed(context.sender(), node);
+        return permissions.allowed(senderOf(context), node);
     }
 
     @Override
     public Optional<Point> positionOf(CommandContext context) {
-        EntityPlayerMP player = context.player();
-        return player == null ? Optional.<Point>empty() : Optional.of(Points.of(player));
+        return playerOf(context).flatMap(Points::of);
     }
 
     @Override
     public Optional<Point> positionOf(UUID player) {
-        EntityPlayerMP online = Players.online(player);
-        return online == null ? Optional.<Point>empty() : Optional.of(Points.of(online));
+        return Points.of(player);
     }
 
     @Override
@@ -74,20 +70,26 @@ final class SenderSubjects implements EssentialsSubjects {
 
     @Override
     public void tell(UUID player, String translationKey, Object... arguments) {
-        EntityPlayerMP online = Players.online(player);
-        if (online != null) {
-            online.addChatMessage(new ChatComponentTranslation(translationKey, arguments));
-        }
+        ServerChat.tell(player, translationKey, arguments);
     }
 
-    static String actorOf(ICommandSender sender) {
-        if (sender instanceof EntityPlayerMP) {
-            return sender.getCommandSenderName();
+    static String actorOf(CommandSender sender) {
+        if (sender.kind() == SenderKind.PLAYER) {
+            return sender.name();
         }
-        if (sender instanceof CommandBlockLogic) {
-            ChunkCoordinates at = sender.getPlayerCoordinates();
-            return at == null ? COMMAND_BLOCK : COMMAND_BLOCK + "@" + at.posX + "," + at.posY + "," + at.posZ;
+        if (sender.kind() == SenderKind.COMMAND_BLOCK) {
+            return sender.position()
+                .map(SenderSubjects::block)
+                .orElse(COMMAND_BLOCK);
         }
-        return sender instanceof RConConsoleSource ? RCON : CONSOLE;
+        return sender.kind() == SenderKind.RCON ? RCON : CONSOLE;
+    }
+
+    private static String block(SenderPosition at) {
+        return COMMAND_BLOCK + "@" + at.x() + "," + at.y() + "," + at.z();
+    }
+
+    private static CommandSender senderOf(CommandContext context) {
+        return Senders.of(context.sender());
     }
 }
