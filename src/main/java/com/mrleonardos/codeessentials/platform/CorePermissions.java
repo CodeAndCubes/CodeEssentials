@@ -24,7 +24,7 @@ final class CorePermissions implements PlayerRights, PlayerMeta {
     private final Supplier<PermissionService> lookup;
     private final Logger log;
     private boolean missingTold;
-    private boolean metaWorks = true;
+    private volatile boolean metaWorks = true;
 
     CorePermissions(Supplier<SharedSettings> shared, Logger log) {
         this(shared, CorePermissions::fromRegistry, log);
