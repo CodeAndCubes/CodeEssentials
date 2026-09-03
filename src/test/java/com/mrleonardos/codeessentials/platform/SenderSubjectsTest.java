@@ -9,14 +9,12 @@ import java.util.UUID;
 
 import net.minecraft.command.ICommandSender;
 import net.minecraft.entity.player.EntityPlayerMP;
-import net.minecraft.util.ChunkCoordinates;
-import net.minecraft.util.IChatComponent;
-import net.minecraft.world.World;
 
 import org.apache.logging.log4j.LogManager;
 import org.junit.jupiter.api.Test;
 
 import com.mrleonardos.codecore.api.command.CommandContext;
+import com.mrleonardos.codecore.api.command.CommandSender;
 import com.mrleonardos.codecore.api.command.SenderKind;
 import com.mrleonardos.codeessentials.internal.SharedSettings;
 import com.mrleonardos.codeessentials.internal.store.EssentialsState;
@@ -47,21 +45,38 @@ class SenderSubjectsTest {
     }
 
     @Test
+    void theSameSignatureComesOutOfAWholeCommand() {
+        assertEquals(
+            "commandblock@8,70,-4",
+            subjects.actorOf(new StubContext(PlatformStubs.Sender.block(0, 8, 70, -4))));
+    }
+
+    @Test
     void aSenderWithoutAPlayerHasNoPositionAndThatIsTheAnswer() {
-        CommandContext console = new ConsoleContext();
+        CommandContext console = new StubContext(PlatformStubs.Sender.of(SenderKind.CONSOLE, "Server"));
 
         assertEquals(Optional.empty(), subjects.playerOf(console));
         assertEquals(Optional.empty(), subjects.positionOf(console), "у консоли координат не бывает");
     }
 
-    /** Контекст с игровым отправителем: подписи ядра переедут на CommandSender третьим шагом. */
-    private static final class ConsoleContext implements CommandContext {
+    /** Контекст команды на одном отправителе; sender() и player() уходят со сносом старых подписей ядра. */
+    private static final class StubContext implements CommandContext {
 
+        private final CommandSender caller;
         private final List<String> replies = new ArrayList<>();
+
+        StubContext(CommandSender caller) {
+            this.caller = caller;
+        }
+
+        @Override
+        public CommandSender caller() {
+            return caller;
+        }
 
         @Override
         public ICommandSender sender() {
-            return new Console();
+            return null;
         }
 
         @Override
@@ -92,37 +107,6 @@ class SenderSubjectsTest {
         @Override
         public void replyError(String translationKey, Object... arguments) {
             replies.add(translationKey);
-        }
-    }
-
-    private static final class Console implements ICommandSender {
-
-        @Override
-        public String getCommandSenderName() {
-            return "Server";
-        }
-
-        @Override
-        public IChatComponent func_145748_c_() {
-            return null;
-        }
-
-        @Override
-        public void addChatMessage(IChatComponent message) {}
-
-        @Override
-        public boolean canCommandSenderUseCommand(int level, String command) {
-            return true;
-        }
-
-        @Override
-        public ChunkCoordinates getPlayerCoordinates() {
-            return null;
-        }
-
-        @Override
-        public World getEntityWorld() {
-            return null;
         }
     }
 }

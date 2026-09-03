@@ -6,13 +6,10 @@ import java.util.List;
 import java.util.Locale;
 import java.util.function.Supplier;
 
-import net.minecraft.command.CommandException;
-import net.minecraft.command.ICommandSender;
-
 import com.mrleonardos.codecore.api.actor.PlayerRef;
 import com.mrleonardos.codecore.api.command.ArgumentType;
+import com.mrleonardos.codecore.api.command.CommandInputException;
 import com.mrleonardos.codecore.api.command.CommandSender;
-import com.mrleonardos.codecore.platform.Senders;
 import com.mrleonardos.codeessentials.api.manage.HomeService;
 import com.mrleonardos.codeessentials.api.manage.WarpService;
 import com.mrleonardos.codeessentials.internal.command.EssentialsArguments;
@@ -46,7 +43,7 @@ final class PlatformArguments implements EssentialsArguments {
             }
 
             @Override
-            public List<String> suggestions(ICommandSender sender, String partial) {
+            public List<String> suggestions(CommandSender sender, String partial) {
                 return names.suggest(partial, SUGGESTION_LIMIT);
             }
         };
@@ -62,9 +59,8 @@ final class PlatformArguments implements EssentialsArguments {
             }
 
             @Override
-            public List<String> suggestions(ICommandSender sender, String partial) {
-                PlayerRef player = Senders.of(sender)
-                    .player()
+            public List<String> suggestions(CommandSender sender, String partial) {
+                PlayerRef player = sender.player()
                     .orElse(null);
                 if (player == null) {
                     return Collections.emptyList();
@@ -88,13 +84,12 @@ final class PlatformArguments implements EssentialsArguments {
             }
 
             @Override
-            public List<String> suggestions(ICommandSender sender, String partial) {
-                CommandSender who = Senders.of(sender);
+            public List<String> suggestions(CommandSender sender, String partial) {
                 List<String> open = new ArrayList<>();
                 for (String name : warps.get()
                     .warps()
                     .keySet()) {
-                    if (permissions.allowed(who, Nodes.warpGo(name))) {
+                    if (permissions.allowed(sender, Nodes.warpGo(name))) {
                         open.add(name);
                     }
                 }
@@ -112,11 +107,11 @@ final class PlatformArguments implements EssentialsArguments {
                 try {
                     double value = Double.parseDouble(raw.trim());
                     if (Double.isNaN(value) || Double.isInfinite(value)) {
-                        throw new CommandException(EssentialsMessages.ERROR_BAD_ARGUMENTS, raw);
+                        throw new CommandInputException(EssentialsMessages.ERROR_BAD_ARGUMENTS, raw);
                     }
                     return Double.valueOf(value);
                 } catch (NumberFormatException notANumber) {
-                    throw new CommandException(EssentialsMessages.ERROR_BAD_ARGUMENTS, raw);
+                    throw new CommandInputException(EssentialsMessages.ERROR_BAD_ARGUMENTS, raw);
                 }
             }
         };

@@ -9,7 +9,6 @@ import com.mrleonardos.codecore.api.command.CommandSender;
 import com.mrleonardos.codecore.api.command.SenderKind;
 import com.mrleonardos.codecore.api.command.SenderPosition;
 import com.mrleonardos.codecore.platform.Players;
-import com.mrleonardos.codecore.platform.Senders;
 import com.mrleonardos.codeessentials.api.model.Point;
 import com.mrleonardos.codeessentials.internal.command.EssentialsSubjects;
 
@@ -29,18 +28,19 @@ final class SenderSubjects implements EssentialsSubjects {
 
     @Override
     public Optional<UUID> playerOf(CommandContext context) {
-        return senderOf(context).player()
+        return context.caller()
+            .player()
             .map(PlayerRef::id);
     }
 
     @Override
     public String actorOf(CommandContext context) {
-        return actorOf(senderOf(context));
+        return actorOf(context.caller());
     }
 
     @Override
     public boolean allowed(CommandContext context, String node) {
-        return permissions.allowed(senderOf(context), node);
+        return permissions.allowed(context.caller(), node);
     }
 
     @Override
@@ -87,9 +87,5 @@ final class SenderSubjects implements EssentialsSubjects {
 
     private static String block(SenderPosition at) {
         return COMMAND_BLOCK + "@" + at.x() + "," + at.y() + "," + at.z();
-    }
-
-    private static CommandSender senderOf(CommandContext context) {
-        return Senders.of(context.sender());
     }
 }
