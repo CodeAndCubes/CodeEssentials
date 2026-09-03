@@ -56,10 +56,12 @@ public final class EngineFixtures {
     public static final class FakeWorld implements BlockView {
 
         private final Map<String, BlockSample> blocks = new HashMap<>();
+        private final Map<String, String> biomes = new HashMap<>();
         private final Set<String> unloaded = new HashSet<>();
         private final Set<String> broughtUp = new LinkedHashSet<>();
         private final int dimension;
 
+        private String everywhere = "";
         private int samples;
 
         FakeWorld(int dimension) {
@@ -68,6 +70,23 @@ public final class EngineFixtures {
 
         Set<String> broughtUp() {
             return broughtUp;
+        }
+
+        public FakeWorld biomeEverywhere(String name) {
+            everywhere = name;
+            return this;
+        }
+
+        public FakeWorld biomeAt(int x, int z, String name) {
+            biomes.put(x + ":" + z, name);
+            return this;
+        }
+
+        public FakeWorld column(int x, int z, int from, int to, BlockSample sample) {
+            for (int y = from; y <= to; y++) {
+                put(x, y, z, sample);
+            }
+            return this;
         }
 
         FakeWorld put(int x, int y, int z, BlockSample sample) {
@@ -111,6 +130,12 @@ public final class EngineFixtures {
         public boolean bringUpChunk(int blockX, int blockZ) {
             broughtUp.add((blockX >> 4) + ":" + (blockZ >> 4));
             return chunkLoaded(blockX, blockZ);
+        }
+
+        @Override
+        public String biome(int blockX, int blockZ) {
+            String held = biomes.get(blockX + ":" + blockZ);
+            return held == null ? everywhere : held;
         }
 
         @Override

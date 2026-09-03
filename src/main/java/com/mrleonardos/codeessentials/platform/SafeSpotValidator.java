@@ -4,6 +4,7 @@ import net.minecraft.block.Block;
 import net.minecraft.block.material.Material;
 import net.minecraft.init.Blocks;
 import net.minecraft.world.WorldServer;
+import net.minecraft.world.biome.BiomeGenBase;
 import net.minecraft.world.chunk.IChunkProvider;
 import net.minecraft.world.chunk.storage.AnvilChunkLoader;
 import net.minecraft.world.gen.ChunkProviderServer;
@@ -71,6 +72,12 @@ final class SafeSpotValidator implements BlockView {
             }
         }
         return true;
+    }
+
+    @Override
+    public String biome(int blockX, int blockZ) {
+        BiomeGenBase biome = world.getBiomeGenForCoords(blockX, blockZ);
+        return biome == null || biome.biomeName == null ? "" : biome.biomeName;
     }
 
     @Override
