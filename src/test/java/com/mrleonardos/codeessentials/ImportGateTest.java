@@ -16,13 +16,17 @@ class ImportGateTest {
     private static final String[] GATED = { "com/mrleonardos/codeessentials/api",
         "com/mrleonardos/codeessentials/internal" };
 
+    private static final String[] FORBIDDEN = { "net/minecraft", "net/minecraftforge", "cpw/mods", "io/netty",
+        "org/lwjgl", "com/mojang", "com/mrleonardos/codecore/platform" };
+
     @Test
     void apiAndInternalHoldNoPlatformTypes() throws IOException {
         List<String> violations = gate().violations(GATED);
 
         assertTrue(
             violations.isEmpty(),
-            () -> "типы Minecraft и Forge живут только в platform, чужие ссылки:\n" + String.join("\n", violations));
+            () -> "типы платформы и хелперы ядра живут только в platform, чужие ссылки:\n"
+                + String.join("\n", violations));
     }
 
     @Test
@@ -40,6 +44,6 @@ class ImportGateTest {
     }
 
     private static PackageGate gate() throws IOException {
-        return PackageGate.of(EssentialsApi.class);
+        return PackageGate.of(EssentialsApi.class, FORBIDDEN);
     }
 }
