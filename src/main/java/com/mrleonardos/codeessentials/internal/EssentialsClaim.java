@@ -23,7 +23,8 @@ public final class EssentialsClaim implements RoleAdapter {
                 EssentialsRole.WARPS,
                 EssentialsRole.SPAWN,
                 EssentialsRole.BACK,
-                EssentialsRole.TPA)));
+                EssentialsRole.TPA,
+                EssentialsRole.RANDOM)));
 
     private final Supplier<RoleServices> build;
 

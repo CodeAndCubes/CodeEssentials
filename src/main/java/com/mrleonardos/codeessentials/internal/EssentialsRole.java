@@ -16,12 +16,13 @@ public final class EssentialsRole {
     public static final RoleCapability SPAWN = RoleCapability.of("spawn");
     public static final RoleCapability BACK = RoleCapability.of("back");
     public static final RoleCapability TPA = RoleCapability.of("tpa");
+    public static final RoleCapability RANDOM = RoleCapability.of("rtp");
 
     private EssentialsRole() {}
 
     public static RoleSpec spec() {
         return RoleSpec.of(ConfigRoles.ESSENTIALS)
-            .capabilities(HOMES, WARPS, SPAWN, BACK, TPA)
+            .capabilities(HOMES, WARPS, SPAWN, BACK, TPA, RANDOM)
             .services(
                 TeleportService.class,
                 HomeService.class,

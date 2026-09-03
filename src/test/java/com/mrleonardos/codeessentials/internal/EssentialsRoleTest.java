@@ -33,7 +33,7 @@ import com.mrleonardos.codeessentials.internal.store.JsonPlayerDataStore;
 class EssentialsRoleTest {
 
     private static final Set<String> ABILITIES = new LinkedHashSet<>(
-        Arrays.asList("homes", "warps", "spawn", "back", "tpa"));
+        Arrays.asList("homes", "warps", "spawn", "back", "tpa", "rtp"));
 
     @Test
     void theRoleNamesEveryAbilityAndEveryServiceItCloses() {
