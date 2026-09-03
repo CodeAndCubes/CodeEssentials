@@ -1,6 +1,7 @@
 package com.mrleonardos.codeessentials.platform;
 
 import java.util.OptionalInt;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.Supplier;
 
@@ -9,9 +10,13 @@ import net.minecraft.command.ICommandSender;
 import org.apache.logging.log4j.Logger;
 
 import com.mrleonardos.codecore.api.CodeApi;
+import com.mrleonardos.codecore.api.adapter.PermissionCapabilities;
+import com.mrleonardos.codecore.api.adapter.RoleCapability;
 import com.mrleonardos.codecore.api.service.PermissionService;
+import com.mrleonardos.codeessentials.internal.EssentialsSettings;
 import com.mrleonardos.codeessentials.internal.SharedSettings;
 import com.mrleonardos.codeessentials.internal.engine.PlayerRights;
+import com.mrleonardos.codeessentials.internal.engine.TeleportEngine;
 import com.mrleonardos.codeessentials.internal.service.PlayerMeta;
 
 final class CorePermissions implements PlayerRights, PlayerMeta {
@@ -20,6 +25,7 @@ final class CorePermissions implements PlayerRights, PlayerMeta {
     private final Supplier<PermissionService> lookup;
     private final Logger log;
     private boolean missingTold;
+    private boolean metaWorks = true;
 
     CorePermissions(Supplier<SharedSettings> shared, Logger log) {
         this(shared, CorePermissions::fromRegistry, log);
@@ -43,6 +49,18 @@ final class CorePermissions implements PlayerRights, PlayerMeta {
         return explained(player, node, service != null && service.has(player, node));
     }
 
+    void reviewMeta(Set<RoleCapability> missing) {
+        metaWorks = !missing.contains(PermissionCapabilities.META);
+        if (!metaWorks) {
+            log.info(
+                "Role permissions is held by an owner without the meta ability: {}, {} and {} are never read,"
+                    + " the values from essentials.toml apply to everyone",
+                EssentialsSettings.META_MAX_HOMES,
+                EssentialsSettings.META_BACK_DEPTH,
+                TeleportEngine.WARMUP_META);
+        }
+    }
+
     @Override
     public OptionalInt number(UUID player, String key) {
         String raw = value(player, key, null);
@@ -60,6 +78,9 @@ final class CorePermissions implements PlayerRights, PlayerMeta {
 
     @Override
     public String value(UUID player, String key, String fallback) {
+        if (!metaWorks) {
+            return fallback;
+        }
         PermissionService service = service();
         return service == null ? fallback : service.meta(player, key, fallback);
     }

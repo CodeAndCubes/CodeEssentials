@@ -78,6 +78,7 @@ public final class CodeEssentialsMod {
     private ConfigFile<SpawnFile> spawnFile;
 
     private ServerThreads threads;
+    private CorePermissions rights;
     private SingleWriterImpl writer;
     private JsonPlayerDataStore store;
     private TeleportEngine engine;
@@ -119,6 +120,9 @@ public final class CodeEssentialsMod {
                 owner == null ? ServiceBridge.NOBODY : owner);
             return;
         }
+        rights.reviewMeta(
+            CodeApi.adapters()
+                .missing(ConfigRoles.PERMISSIONS));
         threads.attach(Thread.currentThread());
         EssentialsApi.freeze();
         writer.start();
@@ -149,7 +153,7 @@ public final class CodeEssentialsMod {
         Supplier<EssentialsSettings> config = settings::get;
         Supplier<SharedSettings> common = this::shared;
         Listeners listeners = new Listeners();
-        CorePermissions rights = new CorePermissions(common, LOG);
+        rights = new CorePermissions(common, LOG);
 
         store = JsonPlayerDataStore.create(configs, ceilings, clock, LOG);
         SafeSpotFinder builtin = new SafeSpotFinder();
