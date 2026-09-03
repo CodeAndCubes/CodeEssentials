@@ -10,8 +10,6 @@ import java.util.List;
 import java.util.OptionalInt;
 import java.util.UUID;
 
-import net.minecraft.command.ICommandSender;
-
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -152,11 +150,6 @@ class CorePermissionsTest {
 
         @Override
         public boolean has(UUID player, String node) {
-            return false;
-        }
-
-        @Override
-        public boolean has(ICommandSender sender, String node) {
             return false;
         }
 

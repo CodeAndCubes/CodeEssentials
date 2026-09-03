@@ -7,9 +7,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-import net.minecraft.command.ICommandSender;
-import net.minecraft.entity.player.EntityPlayerMP;
-
 import org.apache.logging.log4j.LogManager;
 import org.junit.jupiter.api.Test;
 
@@ -72,16 +69,6 @@ class SenderSubjectsTest {
         @Override
         public CommandSender caller() {
             return caller;
-        }
-
-        @Override
-        public ICommandSender sender() {
-            return null;
-        }
-
-        @Override
-        public EntityPlayerMP player() {
-            return null;
         }
 
         @Override
