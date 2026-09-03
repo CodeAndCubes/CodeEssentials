@@ -1,6 +1,7 @@
 package com.mrleonardos.codeessentials.internal.engine;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -26,12 +27,14 @@ import com.mrleonardos.codeessentials.internal.command.RandomSpots;
 class RandomFinderTest {
 
     private static final int GROUND = 64;
+    private static final int SEABED = 40;
     private static final Point HERE = Point.of(0, 0.5D, 65.0D, 0.5D, 90.0F, 10.0F);
 
     private EngineFixtures.FakeWorlds worlds;
     private SafeSpotPolicy policy;
     private FakeSpawns spawns;
     private RandomRules rtp;
+    private SafeSpotLimits spot;
 
     @BeforeEach
     void setUp() {
@@ -39,6 +42,7 @@ class RandomFinderTest {
         policy = new SafeSpotFinder();
         spawns = new FakeSpawns();
         rtp = ring(0, 10);
+        spot = SafeSpotLimits.defaults();
     }
 
     @Test
@@ -146,18 +150,42 @@ class RandomFinderTest {
 
     @Test
     void theOceanIsTurnedDownByTheCheckAndNotByTheList() {
-        EngineFixtures.FakeWorld world = worlds.world(0);
-        for (int x = -20; x <= 20; x++) {
-            for (int z = -20; z <= 20; z++) {
-                world.floor(x, 40, z);
-                world.column(x, z, 41, GROUND, BlockSample.WATER);
-            }
-        }
+        ocean(worlds.world(0));
 
         RandomSpots.Reply reply = finder(13L).find(HERE);
 
         assertEquals(RandomSpots.Outcome.NOT_FOUND, reply.outcome());
         assertEquals(RandomRules.DEFAULT_ATTEMPTS, reply.attempts());
+    }
+
+    @Test
+    void theOceanIsTurnedDownEvenWhenTheSettingsAllowLandingInLiquid() {
+        ocean(worlds.world(0));
+        spot = SafeSpotLimits
+            .of(SafeSpotLimits.DEFAULT_MAX_UP, SafeSpotLimits.DEFAULT_MAX_DOWN, SafeSpotLimits.DEFAULT_RADIUS, true);
+
+        RandomSpots.Reply reply = finder(13L).find(HERE);
+
+        assertEquals(
+            RandomSpots.Outcome.NOT_FOUND,
+            reply.outcome(),
+            "точку игрок не выбирал, поэтому под воду его не сажают ни при каком liquidOk");
+    }
+
+    @Test
+    void theSearchOfARandomSpotNeverAsksForLiquidGround() {
+        plate(worlds.world(0), -20, 20);
+        spot = SafeSpotLimits.of(6, 12, 2, true);
+        RecordingPolicy recording = new RecordingPolicy(new SafeSpotFinder());
+        policy = recording;
+
+        finder(67L).find(HERE);
+
+        assertNotNull(recording.asked, "политику обязаны спросить");
+        assertFalse(recording.asked.liquidOk(), "жидкость выключена именно у случайного переноса");
+        assertEquals(6, recording.asked.maxUp(), "остальные границы поиска остаются как в настройках");
+        assertEquals(12, recording.asked.maxDown());
+        assertEquals(2, recording.asked.radius());
     }
 
     @Test
@@ -349,9 +377,19 @@ class RandomFinderTest {
         world.plate(GROUND, from, to);
     }
 
+    private static void ocean(EngineFixtures.FakeWorld world) {
+        for (int x = -20; x <= 20; x++) {
+            for (int z = -20; z <= 20; z++) {
+                world.floor(x, SEABED, z);
+                world.column(x, z, SEABED + 1, GROUND, BlockSample.WATER);
+            }
+        }
+    }
+
     private RandomFinder finder(long seed) {
         EngineRules rules = EngineRules.builder()
             .random(rtp)
+            .safeSpot(spot)
             .build();
         return new RandomFinder(worlds, () -> policy, () -> rules, () -> spawns, new Random(seed));
     }
@@ -361,6 +399,28 @@ class RandomFinderTest {
             .orElse(null);
         assertNotNull(spot, () -> "точка не нашлась: " + reply);
         return spot;
+    }
+
+    private static final class RecordingPolicy implements SafeSpotPolicy {
+
+        private final SafeSpotPolicy inner;
+
+        private SafeSpotLimits asked;
+
+        RecordingPolicy(SafeSpotPolicy inner) {
+            this.inner = inner;
+        }
+
+        @Override
+        public String id() {
+            return inner.id();
+        }
+
+        @Override
+        public SafeSpotResult find(BlockView view, Point hint, SafeSpotLimits limits) {
+            asked = limits;
+            return inner.find(view, hint, limits);
+        }
     }
 
     private static final class FakeSpawns implements SpawnService {

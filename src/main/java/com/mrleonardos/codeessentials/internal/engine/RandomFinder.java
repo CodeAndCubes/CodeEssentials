@@ -50,10 +50,11 @@ public final class RandomFinder implements RandomSpots {
             return Reply.refused(Outcome.NO_WORLD, 0);
         }
         Point center = center(rtp, dimension);
+        SafeSpotLimits limits = dryLand(current.safeSpot());
         int spent = 0;
         while (spent < rtp.attempts()) {
             spent++;
-            Point spot = attempt(view, rtp, current.safeSpot(), origin, center);
+            Point spot = attempt(view, rtp, limits, origin, center);
             if (spot != null) {
                 return Reply.found(spot, spent);
             }
@@ -109,6 +110,13 @@ public final class RandomFinder implements RandomSpots {
         return service == null ? null
             : service.spawnFor(dimension)
                 .orElse(null);
+    }
+
+    private static SafeSpotLimits dryLand(SafeSpotLimits limits) {
+        if (!limits.liquidOk()) {
+            return limits;
+        }
+        return SafeSpotLimits.of(limits.maxUp(), limits.maxDown(), limits.radius(), false);
     }
 
     private static int surface(BlockView view, int x, int z) {

@@ -280,7 +280,8 @@ public final class EssentialsSettings {
         @Comment("Радиус поиска по горизонтали в блоках.")
         public int radius = SafeSpotLimits.DEFAULT_RADIUS;
 
-        @Comment("Считать ли воду и лаву годным местом для приземления.")
+        @Comment({ "Считать ли воду и лаву годным местом для приземления.",
+            "Случайный перенос этого не спрашивает: точку он выбирает сам и в жидкость не сажает никогда." })
         public boolean liquidOk = false;
     }
 
