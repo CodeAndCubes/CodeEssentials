@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
+import java.lang.reflect.Field;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
@@ -22,6 +23,7 @@ import com.mrleonardos.codecore.api.adapter.RoleSpec;
 import com.mrleonardos.codecore.api.config.ConfigRoles;
 import com.mrleonardos.codecore.api.config.ConfigService;
 import com.mrleonardos.codeessentials.TestConfigs;
+import com.mrleonardos.codeessentials.api.EssentialsCapabilities;
 import com.mrleonardos.codeessentials.api.manage.BackService;
 import com.mrleonardos.codeessentials.api.manage.HomeService;
 import com.mrleonardos.codeessentials.api.manage.SpawnService;
@@ -50,6 +52,18 @@ class EssentialsRoleTest {
                     SpawnService.class,
                     BackService.class)),
             new LinkedHashSet<>(spec.services()));
+    }
+
+    @Test
+    void everyAbilityOfTheRoleIsNamedInTheApi() throws IllegalAccessException {
+        Set<String> declared = new LinkedHashSet<>();
+        for (Field field : EssentialsCapabilities.class.getDeclaredFields()) {
+            if (field.getType() == RoleCapability.class) {
+                declared.add(((RoleCapability) field.get(null)).name());
+            }
+        }
+
+        assertEquals(ABILITIES, declared, "чужой мод берёт умения отсюда, лишних и потерянных тут быть не может");
     }
 
     @Test

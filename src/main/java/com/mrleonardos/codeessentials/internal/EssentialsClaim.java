@@ -11,6 +11,7 @@ import com.mrleonardos.codecore.api.adapter.RoleCapability;
 import com.mrleonardos.codecore.api.adapter.RoleOwnerKind;
 import com.mrleonardos.codecore.api.adapter.RoleServices;
 import com.mrleonardos.codecore.api.config.ConfigRoles;
+import com.mrleonardos.codeessentials.api.EssentialsCapabilities;
 
 public final class EssentialsClaim implements RoleAdapter {
 
@@ -19,12 +20,12 @@ public final class EssentialsClaim implements RoleAdapter {
     private static final Set<RoleCapability> CAPABILITIES = Collections.unmodifiableSet(
         new LinkedHashSet<>(
             Arrays.asList(
-                EssentialsRole.HOMES,
-                EssentialsRole.WARPS,
-                EssentialsRole.SPAWN,
-                EssentialsRole.BACK,
-                EssentialsRole.TPA,
-                EssentialsRole.RANDOM)));
+                EssentialsCapabilities.HOMES,
+                EssentialsCapabilities.WARPS,
+                EssentialsCapabilities.SPAWN,
+                EssentialsCapabilities.BACK,
+                EssentialsCapabilities.TPA,
+                EssentialsCapabilities.RANDOM)));
 
     private final Supplier<RoleServices> build;
 
