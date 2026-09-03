@@ -21,6 +21,7 @@ class EssentialsLimitsTest {
         assertEquals(300, limits.warmupSeconds());
         assertEquals(8, limits.safeSpotRadius());
         assertEquals(10, limits.backDepth());
+        assertEquals(32, limits.randomAttempts());
     }
 
     @Test
@@ -78,6 +79,7 @@ class EssentialsLimitsTest {
                     .warmupSeconds(10)
                     .safeSpotRadius(2)
                     .backDepth(3)
+                    .randomAttempts(4)
                     .build());
 
         assertEquals(16, lowered.nameLength());
@@ -88,6 +90,7 @@ class EssentialsLimitsTest {
         assertEquals(10, lowered.warmupSeconds());
         assertEquals(2, lowered.safeSpotRadius());
         assertEquals(3, lowered.backDepth());
+        assertEquals(4, lowered.randomAttempts());
     }
 
     @Test
@@ -110,14 +113,16 @@ class EssentialsLimitsTest {
         EssentialsLimits.Builder builder = EssentialsLimits.builder()
             .homesPerPlayer(0)
             .backDepth(-1)
-            .warps(64);
+            .warps(64)
+            .randomAttempts(0);
         EssentialsLimits limits = builder.build();
 
         assertEquals(EssentialsLimits.DEFAULT_HOMES_PER_PLAYER, limits.homesPerPlayer());
         assertEquals(EssentialsLimits.DEFAULT_BACK_DEPTH, limits.backDepth());
         assertEquals(64, limits.warps());
+        assertEquals(EssentialsLimits.DEFAULT_RANDOM_ATTEMPTS, limits.randomAttempts());
         assertEquals(
-            2,
+            3,
             builder.remarks()
                 .size());
         assertTrue(
@@ -164,6 +169,10 @@ class EssentialsLimitsTest {
 
         assertEquals(1, limits.clampBackDepth(0));
         assertEquals(10, limits.clampBackDepth(99));
+
+        assertEquals(1, limits.clampRandomAttempts(0));
+        assertEquals(32, limits.clampRandomAttempts(10000));
+        assertEquals(8, limits.clampRandomAttempts(8));
     }
 
     @Test

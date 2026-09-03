@@ -18,7 +18,8 @@ public final class EssentialsRules {
             .requestRateSeconds(settings.requestRateSeconds())
             .requestTimeoutSeconds(settings.requestTimeoutSeconds(ceilings))
             .maxPending(settings.maxPending(ceilings))
-            .safeSpot(settings.spotLimits(ceilings));
+            .safeSpot(settings.spotLimits(ceilings))
+            .random(settings.randomRules(ceilings));
         for (TeleportCause cause : TeleportCause.values()) {
             builder.cooldown(cause, shared.cooldownSeconds(cause));
         }

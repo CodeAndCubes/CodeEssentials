@@ -52,6 +52,9 @@ public final class EssentialsLimits {
     /** Глубина стека возврата. */
     public static final int DEFAULT_BACK_DEPTH = 10;
 
+    /** Сколько точек перебирает случайный перенос за один вызов. */
+    public static final int DEFAULT_RANDOM_ATTEMPTS = 32;
+
     /** Меньше одного запроса в доске означает выключенный tpa, а не настройку. */
     public static final int MIN_PENDING_REQUESTS = 1;
 
@@ -60,6 +63,9 @@ public final class EssentialsLimits {
 
     /** Глубина стека возврата меньше одного означает выключенный {@code /back}, а не настройку. */
     public static final int MIN_BACK_DEPTH = 1;
+
+    /** Ноль попыток означает выключенный {@code /rtp}, для этого есть {@code rtp.enabled}. */
+    public static final int MIN_RANDOM_ATTEMPTS = 1;
 
     private static final Pattern NAME_SHAPE = Pattern.compile("[a-z0-9_-]+");
 
@@ -71,7 +77,8 @@ public final class EssentialsLimits {
         DEFAULT_REQUEST_TIMEOUT_SECONDS,
         DEFAULT_WARMUP_SECONDS,
         DEFAULT_SAFE_SPOT_RADIUS,
-        DEFAULT_BACK_DEPTH);
+        DEFAULT_BACK_DEPTH,
+        DEFAULT_RANDOM_ATTEMPTS);
 
     private final int nameLength;
     private final int homesPerPlayer;
@@ -81,9 +88,10 @@ public final class EssentialsLimits {
     private final int warmupSeconds;
     private final int safeSpotRadius;
     private final int backDepth;
+    private final int randomAttempts;
 
     private EssentialsLimits(int nameLength, int homesPerPlayer, int warps, int pendingRequests,
-        int requestTimeoutSeconds, int warmupSeconds, int safeSpotRadius, int backDepth) {
+        int requestTimeoutSeconds, int warmupSeconds, int safeSpotRadius, int backDepth, int randomAttempts) {
         this.nameLength = nameLength;
         this.homesPerPlayer = homesPerPlayer;
         this.warps = warps;
@@ -92,6 +100,7 @@ public final class EssentialsLimits {
         this.warmupSeconds = warmupSeconds;
         this.safeSpotRadius = safeSpotRadius;
         this.backDepth = backDepth;
+        this.randomAttempts = randomAttempts;
     }
 
     /** Заводские потолки. */
@@ -135,7 +144,8 @@ public final class EssentialsLimits {
             Math.min(requestTimeoutSeconds, requested.requestTimeoutSeconds),
             Math.min(warmupSeconds, requested.warmupSeconds),
             Math.min(safeSpotRadius, requested.safeSpotRadius),
-            Math.min(backDepth, requested.backDepth));
+            Math.min(backDepth, requested.backDepth),
+            Math.min(randomAttempts, requested.randomAttempts));
     }
 
     /** Длина имени дома и варпа в символах. */
@@ -178,6 +188,11 @@ public final class EssentialsLimits {
         return backDepth;
     }
 
+    /** Сколько точек перебирает случайный перенос за один вызов. */
+    public int randomAttempts() {
+        return randomAttempts;
+    }
+
     /** Проходит ли имя дома или варпа по шаблону и текущему потолку длины. */
     public boolean acceptsName(String name) {
         if (name == null || name.isEmpty() || name.length() > nameLength) {
@@ -217,6 +232,11 @@ public final class EssentialsLimits {
         return clamp(value, MIN_BACK_DEPTH, backDepth);
     }
 
+    /** Число попыток случайного переноса в границах потолка. */
+    public int clampRandomAttempts(int value) {
+        return clamp(value, MIN_RANDOM_ATTEMPTS, randomAttempts);
+    }
+
     @Override
     public boolean equals(Object other) {
         if (this == other) {
@@ -232,13 +252,15 @@ public final class EssentialsLimits {
             && requestTimeoutSeconds == that.requestTimeoutSeconds
             && warmupSeconds == that.warmupSeconds
             && safeSpotRadius == that.safeSpotRadius
-            && backDepth == that.backDepth;
+            && backDepth == that.backDepth
+            && randomAttempts == that.randomAttempts;
     }
 
     @Override
     public int hashCode() {
-        return ((((((nameLength * 31 + homesPerPlayer) * 31 + warps) * 31 + pendingRequests) * 31
-            + requestTimeoutSeconds) * 31 + warmupSeconds) * 31 + safeSpotRadius) * 31 + backDepth;
+        return (((((((nameLength * 31 + homesPerPlayer) * 31 + warps) * 31 + pendingRequests) * 31
+            + requestTimeoutSeconds) * 31 + warmupSeconds) * 31 + safeSpotRadius) * 31 + backDepth) * 31
+            + randomAttempts;
     }
 
     @Override
@@ -257,7 +279,9 @@ public final class EssentialsLimits {
             + "s, radius "
             + safeSpotRadius
             + ", back "
-            + backDepth;
+            + backDepth
+            + ", random tries "
+            + randomAttempts;
     }
 
     private static int clamp(int value, int floor, int ceiling) {
@@ -277,6 +301,7 @@ public final class EssentialsLimits {
         private int warmupSeconds = DEFAULT_WARMUP_SECONDS;
         private int safeSpotRadius = DEFAULT_SAFE_SPOT_RADIUS;
         private int backDepth = DEFAULT_BACK_DEPTH;
+        private int randomAttempts = DEFAULT_RANDOM_ATTEMPTS;
 
         private Builder() {}
 
@@ -328,6 +353,12 @@ public final class EssentialsLimits {
             return this;
         }
 
+        /** Число попыток случайного переноса. Значение выше заводского ужимается до заводского. */
+        public Builder randomAttempts(int value) {
+            randomAttempts = lower(value, DEFAULT_RANDOM_ATTEMPTS, "limits.randomAttempts");
+            return this;
+        }
+
         /** Замечания о значениях конфига, которые пришлось заменить заводскими. */
         public List<String> remarks() {
             return new ArrayList<>(remarks);
@@ -343,7 +374,8 @@ public final class EssentialsLimits {
                 requestTimeoutSeconds,
                 warmupSeconds,
                 safeSpotRadius,
-                backDepth);
+                backDepth,
+                randomAttempts);
         }
 
         private int lower(int value, int factoryValue, String field) {

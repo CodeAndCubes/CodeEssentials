@@ -118,7 +118,7 @@ class TeleportJobTest {
 
     @Test
     void causeAnswersForWarmupCooldownAndBackStack() {
-        assertEquals(8, TeleportCause.values().length);
+        assertEquals(9, TeleportCause.values().length);
 
         for (TeleportCause cause : TeleportCause.values()) {
             assertEquals(
@@ -136,6 +136,10 @@ class TeleportJobTest {
 
         assertFalse(TeleportCause.BACK.recordsBack());
         assertTrue(TeleportCause.BACK.chargesCooldown());
+
+        assertTrue(TeleportCause.RANDOM.warmsUp());
+        assertTrue(TeleportCause.RANDOM.chargesCooldown());
+        assertTrue(TeleportCause.RANDOM.recordsBack(), "после /rtp игрок вправе вернуться");
 
         assertFalse(TeleportCause.ADMIN.warmsUp());
         assertFalse(TeleportCause.ADMIN.chargesCooldown());

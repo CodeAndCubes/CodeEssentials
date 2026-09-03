@@ -36,6 +36,7 @@ public final class EngineRules {
     private final int maxPending;
     private final int sweepTicks;
     private final SafeSpotLimits safeSpot;
+    private final RandomRules random;
     private final EssentialsLimits limits;
 
     private EngineRules(Builder builder) {
@@ -51,6 +52,7 @@ public final class EngineRules {
         this.maxPending = builder.limits.clampPendingRequests(builder.maxPending);
         this.sweepTicks = Math.max(1, builder.sweepTicks);
         this.safeSpot = builder.safeSpot;
+        this.random = builder.random;
     }
 
     public static EngineRules defaults() {
@@ -101,6 +103,10 @@ public final class EngineRules {
         return safeSpot;
     }
 
+    public RandomRules random() {
+        return random;
+    }
+
     public EssentialsLimits limits() {
         return limits;
     }
@@ -144,6 +150,7 @@ public final class EngineRules {
         private int maxPending = DEFAULT_MAX_PENDING;
         private int sweepTicks = DEFAULT_SWEEP_TICKS;
         private SafeSpotLimits safeSpot = SafeSpotLimits.defaults();
+        private RandomRules random = RandomRules.defaults();
         private EssentialsLimits limits = EssentialsLimits.defaults();
 
         private Builder() {}
@@ -205,6 +212,11 @@ public final class EngineRules {
 
         public Builder safeSpot(SafeSpotLimits value) {
             safeSpot = Objects.requireNonNull(value, "value");
+            return this;
+        }
+
+        public Builder random(RandomRules value) {
+            random = Objects.requireNonNull(value, "value");
             return this;
         }
 

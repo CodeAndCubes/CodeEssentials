@@ -40,5 +40,6 @@ public final class EssentialsSection {
         public int warp;
         public int back;
         public int tpa;
+        public int random;
     }
 }

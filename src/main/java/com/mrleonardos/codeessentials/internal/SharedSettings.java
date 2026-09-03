@@ -79,6 +79,8 @@ public final class SharedSettings {
                 return atLeastZero(section.cooldowns.back);
             case TPA:
                 return atLeastZero(section.cooldowns.tpa);
+            case RANDOM:
+                return atLeastZero(section.cooldowns.random);
             default:
                 return 0;
         }

@@ -27,6 +27,9 @@ public enum TeleportCause {
     /** Принятый tpa-запрос. */
     TPA(true, true, true),
 
+    /** Случайная точка по {@code /rtp}. Точку выбирает не движок, дальше она обычная. */
+    RANDOM(true, true, true),
+
     /** Точка после смерти. Задержки нет, кулдауна нет, стек уже получил место гибели. */
     RESPAWN(false, false, false),
 
