@@ -20,6 +20,7 @@ import com.mrleonardos.codeessentials.api.EssentialsApi;
 import com.mrleonardos.codeessentials.api.EssentialsLimits;
 import com.mrleonardos.codeessentials.api.manage.BackService;
 import com.mrleonardos.codeessentials.api.manage.HomeService;
+import com.mrleonardos.codeessentials.api.manage.KitService;
 import com.mrleonardos.codeessentials.api.manage.SpawnService;
 import com.mrleonardos.codeessentials.api.manage.WarpService;
 import com.mrleonardos.codeessentials.api.model.PlayerRecord;
@@ -44,6 +45,8 @@ import com.mrleonardos.codeessentials.internal.engine.SafeSpotFinder;
 import com.mrleonardos.codeessentials.internal.engine.TeleportEngine;
 import com.mrleonardos.codeessentials.internal.service.BackServiceImpl;
 import com.mrleonardos.codeessentials.internal.service.HomeServiceImpl;
+import com.mrleonardos.codeessentials.internal.service.KitServiceImpl;
+import com.mrleonardos.codeessentials.internal.service.KitsFile;
 import com.mrleonardos.codeessentials.internal.service.SpawnFile;
 import com.mrleonardos.codeessentials.internal.service.SpawnServiceImpl;
 import com.mrleonardos.codeessentials.internal.service.StateWriter;
@@ -76,6 +79,7 @@ public final class CodeEssentialsMod {
     private ConfigFile<CommandRoots> roots;
     private ConfigFile<WarpsFile> warpsFile;
     private ConfigFile<SpawnFile> spawnFile;
+    private ConfigFile<KitsFile> kitsFile;
 
     private ServerThreads threads;
     private CorePermissions rights;
@@ -89,6 +93,8 @@ public final class CodeEssentialsMod {
     private WarpServiceImpl warps;
     private SpawnServiceImpl spawns;
     private BackServiceImpl backs;
+    private KitServiceImpl kits;
+    private KitChests chests;
 
     private volatile EssentialsLimits ceilings;
     private volatile SharedSettings shared;
@@ -135,6 +141,7 @@ public final class CodeEssentialsMod {
         if (board == null) {
             return;
         }
+        chests.closeAll();
         board.stop();
         tracker.rest();
         writer.stop();
@@ -148,6 +155,7 @@ public final class CodeEssentialsMod {
         roots = configs.open(CommandRoots.spec());
         warpsFile = configs.open(WarpsFile.spec());
         spawnFile = configs.open(SpawnFile.spec());
+        kitsFile = configs.open(KitsFile.spec());
         refresh();
 
         Supplier<EssentialsSettings> config = settings::get;
@@ -194,6 +202,18 @@ public final class CodeEssentialsMod {
         homes = new HomeServiceImpl(config, common, rights, state, listeners::homes, threads, LOG);
         warps = new WarpServiceImpl(config, common, warpsFile, worlds, LOG);
         spawns = new SpawnServiceImpl(common, spawnFile, LOG);
+        kits = new KitServiceImpl(
+            common,
+            kitsFile,
+            new KitInventories(LOG),
+            listeners::kits,
+            rights,
+            writer,
+            threads,
+            clock,
+            LOG);
+        NameResolver names = new NameResolver(writer::state);
+        chests = new KitChests(() -> kits, names, LOG);
 
         ServiceBridge.register(PlayerDataStore.class, store, ServicePriority.BUILTIN);
         ServiceBridge.register(SafeSpotPolicy.class, policy, ServicePriority.BUILTIN);
@@ -202,7 +222,7 @@ public final class CodeEssentialsMod {
         Supplier<HomeService> homeHolder = ServiceBridge.holder(HomeService.class, homes);
         Supplier<WarpService> warpHolder = ServiceBridge.holder(WarpService.class, warps);
         Supplier<SpawnService> spawnHolder = ServiceBridge.holder(SpawnService.class, spawns);
-        NameResolver names = new NameResolver(writer::state);
+        Supplier<KitService> kitHolder = ServiceBridge.holder(KitService.class, kits);
 
         new EssentialsCommands(
             config,
@@ -213,9 +233,11 @@ public final class CodeEssentialsMod {
             warpHolder,
             spawnHolder,
             ServiceBridge.holder(BackService.class, backs),
+            kitHolder,
+            chests,
             new RequestBridge(board),
             new RandomFinder(worlds, () -> policy, this::rules, spawnHolder, new Random()),
-            new PlatformArguments(names, homeHolder, warpHolder, rights),
+            new PlatformArguments(names, homeHolder, warpHolder, kitHolder, rights),
             new SenderSubjects(names, rights),
             new PlatformMaintenance(
                 configs,
@@ -224,6 +246,7 @@ public final class CodeEssentialsMod {
                 roots,
                 warpsFile,
                 spawnFile,
+                kitsFile,
                 this::rules,
                 this::refresh,
                 LOG),
@@ -231,7 +254,7 @@ public final class CodeEssentialsMod {
         completeRoots();
 
         tracker = new PlayerTracker(engine);
-        lifecycle = new ForgeLifecycle(engine, board, state, new RespawnChoice(spawnHolder), threads);
+        lifecycle = new ForgeLifecycle(engine, board, state, new RespawnChoice(spawnHolder), kitHolder, threads);
         FMLCommonHandler.instance()
             .bus()
             .register(lifecycle);
@@ -246,6 +269,7 @@ public final class CodeEssentialsMod {
             .add(WarpService.class, warps)
             .add(SpawnService.class, spawns)
             .add(BackService.class, backs)
+            .add(KitService.class, kits)
             .build();
     }
 
@@ -304,7 +328,7 @@ public final class CodeEssentialsMod {
             + (table.global()
                 .isPresent() ? 1 : 0);
         LOG.info(
-            "CodeEssentials is up: storage {} holds {} player(s) and {} home(s), {} warp(s) and {} spawn point(s) are loaded",
+            "CodeEssentials is up: storage {} holds {} player(s) and {} home(s), {} warp(s), {} kit(s) and {} spawn point(s) are loaded",
             provider(),
             Integer.valueOf(
                 state.players()
@@ -313,14 +337,18 @@ public final class CodeEssentialsMod {
             Integer.valueOf(
                 warps.warps()
                     .size()),
+            Integer.valueOf(
+                kits.kits()
+                    .size()),
             Integer.valueOf(spawnCount));
         LOG.info(
-            "Services: TeleportService {}, HomeService {}, WarpService {}, SpawnService {}, BackService {}, SafeSpotPolicy {}",
+            "Services: TeleportService {}, HomeService {}, WarpService {}, SpawnService {}, BackService {}, KitService {}, SafeSpotPolicy {}",
             ServiceBridge.owner(TeleportService.class),
             ServiceBridge.owner(HomeService.class),
             ServiceBridge.owner(WarpService.class),
             ServiceBridge.owner(SpawnService.class),
             ServiceBridge.owner(BackService.class),
+            ServiceBridge.owner(KitService.class),
             ServiceBridge.owner(SafeSpotPolicy.class));
     }
 }

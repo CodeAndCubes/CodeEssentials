@@ -13,6 +13,7 @@ import com.mrleonardos.codeessentials.internal.EssentialsSettings;
 import com.mrleonardos.codeessentials.internal.command.CommandRoots;
 import com.mrleonardos.codeessentials.internal.command.EssentialsMaintenance;
 import com.mrleonardos.codeessentials.internal.engine.EngineRules;
+import com.mrleonardos.codeessentials.internal.service.KitsFile;
 import com.mrleonardos.codeessentials.internal.service.SpawnFile;
 import com.mrleonardos.codeessentials.internal.service.WarpsFile;
 
@@ -30,6 +31,7 @@ final class PlatformMaintenance implements EssentialsMaintenance {
     private final ConfigFile<CommandRoots> commands;
     private final ConfigFile<WarpsFile> warps;
     private final ConfigFile<SpawnFile> spawn;
+    private final ConfigFile<KitsFile> kits;
     private final Supplier<EngineRules> rules;
     private final Runnable refresh;
     private final Logger log;
@@ -37,13 +39,15 @@ final class PlatformMaintenance implements EssentialsMaintenance {
 
     PlatformMaintenance(ConfigService configs, ConfigFile<EssentialsSettings> settings,
         ConfigFile<EssentialsSection> section, ConfigFile<CommandRoots> commands, ConfigFile<WarpsFile> warps,
-        ConfigFile<SpawnFile> spawn, Supplier<EngineRules> rules, Runnable refresh, Logger log) {
+        ConfigFile<SpawnFile> spawn, ConfigFile<KitsFile> kits, Supplier<EngineRules> rules, Runnable refresh,
+        Logger log) {
         this.configs = configs;
         this.settings = settings;
         this.section = section;
         this.commands = commands;
         this.warps = warps;
         this.spawn = spawn;
+        this.kits = kits;
         this.rules = rules;
         this.refresh = refresh;
         this.log = log;
@@ -58,6 +62,7 @@ final class PlatformMaintenance implements EssentialsMaintenance {
             commands.reload();
             warps.reload();
             spawn.reload();
+            kits.reload();
         } catch (RuntimeException failure) {
             return StoreResult.failure(StoreResult.Failure.PROVIDER_FAILED, failure.toString());
         }
@@ -83,6 +88,8 @@ final class PlatformMaintenance implements EssentialsMaintenance {
             + "s, "
             + warps.get().warps.size()
             + " warp(s), "
+            + kits.get().kits.size()
+            + " kit(s), "
             + spawns()
             + " spawn point(s), "
             + ROOTS_NEED_RESTART;
