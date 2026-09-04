@@ -2,6 +2,7 @@ package com.mrleonardos.codeessentials.api.model;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -9,6 +10,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -123,11 +125,78 @@ class RecordsTest {
         assertFalse(
             player.topBack()
                 .isPresent());
-        assertEquals(PLAYER.toString() + ": 0 home(s), 0 back", player.toString());
+        assertEquals(PLAYER.toString() + ": 0 home(s), 0 back, 0 kit buffer(s), 0 kit claim(s)", player.toString());
         assertEquals(
             "Steve",
             player.withName("Steve")
                 .name());
+    }
+
+    @Test
+    void kitBufferAndClaimsTravelWithTheRecord() {
+        PlayerRecord player = PlayerRecord.empty(PLAYER, "Steve");
+
+        PlayerRecord buffered = player.withKitBuffer(
+            "starter",
+            Arrays.asList(KitItem.of("minecraft:bread", 16), KitItem.of("minecraft:iron_pickaxe", 1, 120, "")));
+
+        assertEquals(17, buffered.kitBufferCount());
+        assertEquals(
+            2,
+            buffered.kitBuffer("starter")
+                .size());
+        assertTrue(
+            player.kitBuffer("starter")
+                .isEmpty());
+        assertEquals(0, player.kitBufferCount());
+        assertEquals(
+            Arrays.asList(KitItem.of("minecraft:apple", 3)),
+            buffered
+                .withKitBuffer(
+                    "starter",
+                    Arrays.asList(KitItem.of("minecraft:bread", 16), KitItem.of("minecraft:apple", 3)))
+                .kitBuffer("starter")
+                .subList(1, 2));
+    }
+
+    @Test
+    void anEmptyBufferRemovesTheKitAndClaimsAreNotRemovable() {
+        PlayerRecord player = PlayerRecord.empty(PLAYER, "Steve")
+            .withKitBuffer("starter", Arrays.asList(KitItem.of("minecraft:bread", 16)))
+            .withKitClaim("starter");
+
+        assertFalse(player.hasKitClaim("starter") == false);
+        assertEquals(
+            1,
+            player.kitClaims()
+                .size());
+        assertTrue(
+            player.withKitBuffer("starter", Collections.emptyList())
+                .kitBuffer()
+                .isEmpty());
+        assertTrue(
+            player.withKitClaim("starter")
+                .hasKitClaim("starter"));
+        assertFalse(
+            player.withKitBuffer("other", Arrays.asList(KitItem.of("minecraft:bread", 1)))
+                .hasKitClaim("other"));
+    }
+
+    @Test
+    void kitStateChangesTheRecord() {
+        PlayerRecord plain = PlayerRecord.empty(PLAYER, "Steve");
+        PlayerRecord marked = plain.withKitClaim("starter");
+
+        assertNotEquals(plain, marked);
+        assertEquals(marked, plain.withKitClaim("starter"));
+        assertEquals(
+            marked.hashCode(),
+            plain.withKitClaim("starter")
+                .hashCode());
+        assertNotEquals(
+            marked,
+            plain.withKitBuffer("starter", Arrays.asList(KitItem.of("minecraft:bread", 2)))
+                .withKitClaim("starter"));
     }
 
     @Test

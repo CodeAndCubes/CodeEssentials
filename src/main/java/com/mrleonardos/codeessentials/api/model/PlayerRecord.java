@@ -8,13 +8,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.TreeMap;
+import java.util.TreeSet;
 import java.util.UUID;
 
 import com.mrleonardos.codeessentials.api.EssentialsLimits;
 
 /**
- * Состояние игрока в мире: дома и стек возврата.
+ * Состояние игрока в мире: дома, стек возврата, буфер китов и отметки одноразовых китов.
  *
  * <p>
  * Запись неизменяема, правка отдаёт новую: снимок за volatile меняется целиком, и читатель из
@@ -22,7 +24,9 @@ import com.mrleonardos.codeessentials.api.EssentialsLimits;
  * файлом со своим сроком годности.
  *
  * <p>
- * Дома отсортированы по имени, стек возврата идёт от свежей записи к старой.
+ * Дома отсортированы по имени, стек возврата идёт от свежей записи к старой, буфер китов по имени
+ * кита. Буфер это долг перед игроком: не влезшие при выдаче предметы ждут здесь и доезжают позже,
+ * поэтому его никто не чистит, даже когда сам кит удалён.
  */
 public final class PlayerRecord {
 
@@ -30,12 +34,17 @@ public final class PlayerRecord {
     private final String name;
     private final Map<String, HomeRecord> homes;
     private final List<BackPoint> back;
+    private final Map<String, List<KitItem>> kits;
+    private final Set<String> claims;
 
-    private PlayerRecord(UUID uuid, String name, Map<String, HomeRecord> homes, List<BackPoint> back) {
+    private PlayerRecord(UUID uuid, String name, Map<String, HomeRecord> homes, List<BackPoint> back,
+        Map<String, List<KitItem>> kits, Set<String> claims) {
         this.uuid = uuid;
         this.name = name;
         this.homes = homes;
         this.back = back;
+        this.kits = kits;
+        this.claims = claims;
     }
 
     /**
@@ -46,18 +55,46 @@ public final class PlayerRecord {
      * @param back  стек возврата от свежей записи к старой
      */
     public static PlayerRecord of(UUID uuid, String name, Collection<HomeRecord> homes, List<BackPoint> back) {
+        return of(
+            uuid,
+            name,
+            homes,
+            back,
+            Collections.<String, List<KitItem>>emptyMap(),
+            Collections.<String>emptySet());
+    }
+
+    /**
+     * Собрать запись со всем состоянием китов.
+     *
+     * @param kits   буфер китов: имя кита в предметы по порядку доставки, пустые списки не хранятся
+     * @param claims имена взятых одноразовых китов
+     */
+    public static PlayerRecord of(UUID uuid, String name, Collection<HomeRecord> homes, List<BackPoint> back,
+        Map<String, List<KitItem>> kits, Set<String> claims) {
         Objects.requireNonNull(uuid, "uuid");
         Objects.requireNonNull(homes, "homes");
         Objects.requireNonNull(back, "back");
+        Objects.requireNonNull(kits, "kits");
+        Objects.requireNonNull(claims, "claims");
         Map<String, HomeRecord> byName = new TreeMap<>();
         for (HomeRecord home : homes) {
             byName.put(home.name(), home);
+        }
+        Map<String, List<KitItem>> buffered = new TreeMap<>();
+        for (Map.Entry<String, List<KitItem>> entry : kits.entrySet()) {
+            List<KitItem> items = entry.getValue() == null ? null : entry.getValue();
+            if (items != null && !items.isEmpty()) {
+                buffered.put(entry.getKey(), Collections.unmodifiableList(new ArrayList<>(items)));
+            }
         }
         return new PlayerRecord(
             uuid,
             name,
             Collections.unmodifiableMap(byName),
-            Collections.unmodifiableList(new ArrayList<>(back)));
+            Collections.unmodifiableList(new ArrayList<>(back)),
+            Collections.unmodifiableMap(buffered),
+            Collections.unmodifiableSet(new TreeSet<>(claims)));
     }
 
     /** Игрок без домов и без записей возврата. */
@@ -95,9 +132,41 @@ public final class PlayerRecord {
         return back.isEmpty() ? Optional.<BackPoint>empty() : Optional.of(back.get(0));
     }
 
+    /** Буфер китов: имя кита в ждущие предметы, порядок алфавитный, пустых записей нет. */
+    public Map<String, List<KitItem>> kitBuffer() {
+        return kits;
+    }
+
+    /** Ждущие предметы одного кита или пустой список. */
+    public List<KitItem> kitBuffer(String kitName) {
+        List<KitItem> held = kits.get(kitName);
+        return held == null ? Collections.<KitItem>emptyList() : held;
+    }
+
+    /** Сколько предметов ждёт в буфере всех китов. */
+    public int kitBufferCount() {
+        int count = 0;
+        for (List<KitItem> items : kits.values()) {
+            for (KitItem item : items) {
+                count += item.count();
+            }
+        }
+        return count;
+    }
+
+    /** Взят ли одноразовый кит с таким именем. */
+    public boolean hasKitClaim(String kitName) {
+        return claims.contains(kitName);
+    }
+
+    /** Имена взятых одноразовых китов, порядок алфавитный. */
+    public Set<String> kitClaims() {
+        return claims;
+    }
+
     /** Та же запись с обновлённым именем. */
     public PlayerRecord withName(String newName) {
-        return new PlayerRecord(uuid, newName, homes, back);
+        return new PlayerRecord(uuid, newName, homes, back, kits, claims);
     }
 
     /** Та же запись с записанным домом: имя уже занято, значит дом переезжает на новую точку. */
@@ -105,7 +174,7 @@ public final class PlayerRecord {
         Objects.requireNonNull(home, "home");
         Map<String, HomeRecord> updated = new TreeMap<>(homes);
         updated.put(home.name(), home);
-        return new PlayerRecord(uuid, name, Collections.unmodifiableMap(updated), back);
+        return new PlayerRecord(uuid, name, Collections.unmodifiableMap(updated), back, kits, claims);
     }
 
     /** Та же запись без указанного дома. Дома с таким именем нет, значит запись остаётся прежней. */
@@ -115,7 +184,7 @@ public final class PlayerRecord {
         }
         Map<String, HomeRecord> updated = new TreeMap<>(homes);
         updated.remove(homeName);
-        return new PlayerRecord(uuid, name, Collections.unmodifiableMap(updated), back);
+        return new PlayerRecord(uuid, name, Collections.unmodifiableMap(updated), back, kits, claims);
     }
 
     /**
@@ -133,7 +202,13 @@ public final class PlayerRecord {
         while (updated.size() > kept) {
             updated.removeLast();
         }
-        return new PlayerRecord(uuid, name, homes, Collections.unmodifiableList(new ArrayList<>(updated)));
+        return new PlayerRecord(
+            uuid,
+            name,
+            homes,
+            Collections.unmodifiableList(new ArrayList<>(updated)),
+            kits,
+            claims);
     }
 
     /** Та же запись без верхней точки стека. Стек пуст, значит запись остаётся прежней. */
@@ -145,7 +220,50 @@ public final class PlayerRecord {
             uuid,
             name,
             homes,
-            Collections.unmodifiableList(new ArrayList<>(back.subList(1, back.size()))));
+            Collections.unmodifiableList(new ArrayList<>(back.subList(1, back.size()))),
+            kits,
+            claims);
+    }
+
+    /**
+     * Та же запись с отмеченным одноразовым китом. Отметка не снимается никаким методом: снятое
+     * разрешение вернуло бы игроку второй кит.
+     *
+     * @param kitName имя кита в нижнем регистре
+     */
+    public PlayerRecord withKitClaim(String kitName) {
+        Objects.requireNonNull(kitName, "kitName");
+        if (claims.contains(kitName)) {
+            return this;
+        }
+        Set<String> updated = new TreeSet<>(claims);
+        updated.add(kitName);
+        return new PlayerRecord(uuid, name, homes, back, kits, Collections.unmodifiableSet(updated));
+    }
+
+    /**
+     * Та же запись с новым буфером одного кита.
+     *
+     * @param kitName имя кита в нижнем регистре
+     * @param items   ждущие предметы по порядку доставки; пустой список убирает запись
+     */
+    public PlayerRecord withKitBuffer(String kitName, List<KitItem> items) {
+        Objects.requireNonNull(kitName, "kitName");
+        Objects.requireNonNull(items, "items");
+        Map<String, List<KitItem>> updated = new TreeMap<>(kits);
+        if (items.isEmpty()) {
+            if (!updated.containsKey(kitName)) {
+                return this;
+            }
+            updated.remove(kitName);
+        } else {
+            List<KitItem> held = updated.get(kitName);
+            if (held != null && held.equals(items)) {
+                return this;
+            }
+            updated.put(kitName, Collections.unmodifiableList(new ArrayList<>(items)));
+        }
+        return new PlayerRecord(uuid, name, homes, back, Collections.unmodifiableMap(updated), claims);
     }
 
     @Override
@@ -159,16 +277,27 @@ public final class PlayerRecord {
         PlayerRecord that = (PlayerRecord) other;
         return uuid.equals(that.uuid) && Objects.equals(name, that.name)
             && homes.equals(that.homes)
-            && back.equals(that.back);
+            && back.equals(that.back)
+            && kits.equals(that.kits)
+            && claims.equals(that.claims);
     }
 
     @Override
     public int hashCode() {
-        return ((uuid.hashCode() * 31 + Objects.hashCode(name)) * 31 + homes.hashCode()) * 31 + back.hashCode();
+        return (((uuid.hashCode() * 31 + Objects.hashCode(name)) * 31 + homes.hashCode()) * 31 + back.hashCode()) * 31
+            + (kits.hashCode() * 31 + claims.hashCode());
     }
 
     @Override
     public String toString() {
-        return (name == null ? uuid.toString() : name) + ": " + homes.size() + " home(s), " + back.size() + " back";
+        return (name == null ? uuid.toString() : name) + ": "
+            + homes.size()
+            + " home(s), "
+            + back.size()
+            + " back, "
+            + kits.size()
+            + " kit buffer(s), "
+            + claims.size()
+            + " kit claim(s)";
     }
 }

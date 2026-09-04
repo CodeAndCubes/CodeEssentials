@@ -2,6 +2,7 @@ package com.mrleonardos.codeessentials.internal.store;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -17,9 +18,11 @@ import org.apache.logging.log4j.Logger;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.google.gson.JsonPrimitive;
 import com.mrleonardos.codeessentials.api.EssentialsLimits;
 import com.mrleonardos.codeessentials.api.model.BackPoint;
 import com.mrleonardos.codeessentials.api.model.HomeRecord;
+import com.mrleonardos.codeessentials.api.model.KitItem;
 import com.mrleonardos.codeessentials.api.model.PlayerRecord;
 import com.mrleonardos.codeessentials.api.model.Point;
 import com.mrleonardos.codeessentials.api.store.PlayerDataStore;
@@ -30,6 +33,8 @@ public final class LocationsCodec {
     public static final String NAME = "name";
     public static final String HOMES = "homes";
     public static final String BACK = "back";
+    public static final String KITS = "kits";
+    public static final String CLAIMS = "claims";
     public static final String POINT = "point";
     public static final String CREATED_AT = "createdAt";
     public static final String ORIGIN = "origin";
@@ -196,12 +201,71 @@ public final class LocationsCodec {
     private PlayerRecord readPlayer(UUID uuid, JsonObject data, Logger log, Tally tally, Held held) {
         List<HomeRecord> homes = readHomes(uuid, data.get(HOMES), log, tally, held);
         List<BackPoint> back = readBack(uuid, data.get(BACK), log, tally, held);
+        Map<String, List<KitItem>> kits = readKits(uuid, data.get(KITS), log, tally, held);
+        Set<String> claims = readClaims(data.get(CLAIMS), log, tally, held);
         try {
-            return PlayerRecord.of(uuid, text(data.get(NAME)), homes, back);
+            return PlayerRecord.of(uuid, text(data.get(NAME)), homes, back, kits, claims);
         } catch (RuntimeException broken) {
             warn(log, "Player {} is unusable and stays in the file untouched: {}", uuid, broken.getMessage());
             return null;
         }
+    }
+
+    private Map<String, List<KitItem>> readKits(UUID uuid, JsonElement element, Logger log, Tally tally, Held held) {
+        Map<String, List<KitItem>> kits = new LinkedHashMap<>();
+        if (element == null || !element.isJsonObject()) {
+            return kits;
+        }
+        for (Map.Entry<String, JsonElement> entry : element.getAsJsonObject()
+            .entrySet()) {
+            String kit = entry.getKey()
+                .trim()
+                .toLowerCase(Locale.ROOT);
+            if (kit.isEmpty() || !entry.getValue()
+                .isJsonArray()) {
+                tally.count++;
+                held.kit(entry.getKey(), entry.getValue());
+                warn(log, "Kit buffer {} of {} is unreadable and stays in the file untouched", entry.getKey(), uuid);
+                continue;
+            }
+            List<KitItem> items = new ArrayList<>();
+            for (JsonElement raw : entry.getValue()
+                .getAsJsonArray()) {
+                Optional<KitItem> item = KitItem.parse(text(raw));
+                if (!item.isPresent()) {
+                    tally.count++;
+                    held.item(kit, raw);
+                    warn(log, "Item {} of the kit buffer {} of {} stays in the file untouched", raw, kit, uuid);
+                    continue;
+                }
+                items.add(item.get());
+            }
+            if (!items.isEmpty()) {
+                kits.put(kit, items);
+            }
+        }
+        return kits;
+    }
+
+    private Set<String> readClaims(JsonElement element, Logger log, Tally tally, Held held) {
+        Set<String> claims = new LinkedHashSet<>();
+        if (element == null || !element.isJsonArray()) {
+            return claims;
+        }
+        for (JsonElement raw : element.getAsJsonArray()) {
+            String name = text(raw);
+            if (name == null || name.trim()
+                .isEmpty()) {
+                tally.count++;
+                held.claim(raw);
+                warn(log, "Kit claim {} is unreadable and stays in the file untouched", raw);
+                continue;
+            }
+            claims.add(
+                name.trim()
+                    .toLowerCase(Locale.ROOT));
+        }
+        return claims;
     }
 
     private List<HomeRecord> readHomes(UUID uuid, JsonElement element, Logger log, Tally tally, Held held) {
@@ -344,6 +408,27 @@ public final class LocationsCodec {
             }
             data.add(BACK, back);
         }
+        if (!player.kitBuffer()
+            .isEmpty()) {
+            JsonObject kits = new JsonObject();
+            for (Map.Entry<String, List<KitItem>> entry : player.kitBuffer()
+                .entrySet()) {
+                JsonArray items = new JsonArray();
+                for (KitItem item : entry.getValue()) {
+                    items.add(new JsonPrimitive(item.print()));
+                }
+                kits.add(entry.getKey(), items);
+            }
+            data.add(KITS, kits);
+        }
+        if (!player.kitClaims()
+            .isEmpty()) {
+            JsonArray claims = new JsonArray();
+            for (String claim : player.kitClaims()) {
+                claims.add(new JsonPrimitive(claim));
+            }
+            data.add(CLAIMS, claims);
+        }
         return data;
     }
 
@@ -401,6 +486,8 @@ public final class LocationsCodec {
 
         private final Map<String, JsonElement> homes = new LinkedHashMap<>();
         private final List<JsonElement> back = new ArrayList<>();
+        private final Map<String, List<JsonElement>> kits = new LinkedHashMap<>();
+        private final List<JsonElement> claims = new ArrayList<>();
 
         void home(String name, JsonElement element) {
             if (element != null) {
@@ -414,8 +501,38 @@ public final class LocationsCodec {
             }
         }
 
+        void kit(String kit, JsonElement element) {
+            if (element != null) {
+                kits.put(kit, Collections.singletonList(element));
+            }
+        }
+
+        void item(String kit, JsonElement element) {
+            if (element == null) {
+                return;
+            }
+            List<JsonElement> held = kits.get(kit);
+            if (held == null) {
+                kits.put(kit, new ArrayList<>(Collections.singletonList(element)));
+                return;
+            }
+            List<JsonElement> grown = new ArrayList<>(held);
+            grown.add(element);
+            kits.put(kit, grown);
+        }
+
+        void claim(JsonElement element) {
+            if (element != null) {
+                claims.add(element);
+            }
+        }
+
         int records() {
-            return homes.size() + back.size();
+            int count = homes.size() + back.size() + claims.size();
+            for (List<JsonElement> items : kits.values()) {
+                count += items.size();
+            }
+            return count;
         }
 
         void mergeInto(JsonObject data) {
@@ -429,13 +546,36 @@ public final class LocationsCodec {
                 data.add(HOMES, written);
             }
             if (!back.isEmpty()) {
-                JsonArray written = data.has(BACK) && data.get(BACK)
-                    .isJsonArray() ? data.getAsJsonArray(BACK) : new JsonArray();
+                JsonArray written = array(data, BACK);
                 for (JsonElement point : back) {
                     written.add(point);
                 }
                 data.add(BACK, written);
             }
+            if (!kits.isEmpty()) {
+                JsonObject written = section(data, KITS);
+                for (Map.Entry<String, List<JsonElement>> kit : kits.entrySet()) {
+                    JsonArray held = written.has(kit.getKey()) && written.get(kit.getKey())
+                        .isJsonArray() ? written.getAsJsonArray(kit.getKey()) : new JsonArray();
+                    for (JsonElement item : kit.getValue()) {
+                        held.add(item);
+                    }
+                    written.add(kit.getKey(), held);
+                }
+                data.add(KITS, written);
+            }
+            if (!claims.isEmpty()) {
+                JsonArray written = array(data, CLAIMS);
+                for (JsonElement claim : claims) {
+                    written.add(claim);
+                }
+                data.add(CLAIMS, written);
+            }
+        }
+
+        private static JsonArray array(JsonObject data, String field) {
+            JsonElement element = data.get(field);
+            return element != null && element.isJsonArray() ? element.getAsJsonArray() : new JsonArray();
         }
 
         private static JsonObject section(JsonObject data, String field) {

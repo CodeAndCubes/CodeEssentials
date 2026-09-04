@@ -16,9 +16,11 @@ import org.junit.jupiter.api.Test;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
+import com.google.gson.JsonPrimitive;
 import com.mrleonardos.codeessentials.api.EssentialsLimits;
 import com.mrleonardos.codeessentials.api.model.BackPoint;
 import com.mrleonardos.codeessentials.api.model.HomeRecord;
+import com.mrleonardos.codeessentials.api.model.KitItem;
 import com.mrleonardos.codeessentials.api.model.PlayerRecord;
 import com.mrleonardos.codeessentials.api.model.Point;
 import com.mrleonardos.codeessentials.api.store.PlayerDataStore;
@@ -320,6 +322,100 @@ class LocationsCodecTest {
         assertTrue(
             codec.readCooldowns(new JsonObject(), 0L, null)
                 .cooldowns()
+                .isEmpty());
+    }
+
+    @Test
+    void kitBufferAndClaimsSurviveTheRoundTrip() {
+        PlayerRecord written = PlayerRecord.empty(STEVE, "Steve")
+            .withKitBuffer(
+                "starter",
+                Arrays.asList(KitItem.of("minecraft:bread", 16), KitItem.of("minecraft:iron_pickaxe", 1, 120, "")))
+            .withKitClaim("starter");
+
+        JsonObject file = LocationsCodec.emptyPlayers();
+        codec.writePlayers(file, Arrays.asList(written), LocationsCodec.Quarantine.empty());
+        PlayerRecord read = codec.readPlayers(file, null)
+            .players()
+            .get(STEVE);
+
+        assertEquals(written, read);
+        assertEquals(
+            Arrays.asList(KitItem.of("minecraft:bread", 16), KitItem.of("minecraft:iron_pickaxe", 1, 120, "")),
+            read.kitBuffer("starter"));
+        assertEquals(17, read.kitBufferCount());
+        assertTrue(read.hasKitClaim("starter"));
+        assertTrue(
+            read.kitBuffer()
+                .containsKey("starter"));
+    }
+
+    @Test
+    void aPlayerWithoutKitsWritesNoKitSection() {
+        JsonObject file = LocationsCodec.emptyPlayers();
+
+        codec.writePlayers(file, Arrays.asList(PlayerRecord.empty(STEVE, "Steve")), LocationsCodec.Quarantine.empty());
+
+        assertFalse(
+            file.getAsJsonObject(LocationsCodec.PLAYERS)
+                .get(STEVE.toString())
+                .getAsJsonObject()
+                .has(LocationsCodec.KITS));
+    }
+
+    @Test
+    void anUnreadableKitItemStaysInTheFileAndIsCounted() {
+        JsonObject kits = new JsonObject();
+        JsonArray items = new JsonArray();
+        items.add(new JsonPrimitive("minecraft:bread 16"));
+        items.add(new JsonPrimitive("нет предмета вовсе"));
+        kits.add("starter", items);
+        JsonArray claims = new JsonArray();
+        claims.add(new JsonPrimitive("starter"));
+        claims.add(new JsonPrimitive(" "));
+        JsonObject entry = entry("Steve", null, null);
+        entry.add(LocationsCodec.KITS, kits);
+        entry.add(LocationsCodec.CLAIMS, claims);
+        JsonObject file = playersFile(entry);
+
+        LocationsCodec.DecodedPlayers decoded = codec.readPlayers(file, null);
+        PlayerRecord read = decoded.players()
+            .get(STEVE);
+
+        assertEquals(16, read.kitBufferCount());
+        assertEquals(
+            2,
+            decoded.quarantine()
+                .records(),
+            "нечитаемая строка буфера и кривая отметка остаются в файле");
+        assertTrue(read.hasKitClaim("starter"));
+        assertFalse(read.hasKitClaim(" "));
+
+        JsonObject written = LocationsCodec.emptyPlayers();
+        codec.writePlayers(written, Collections.<PlayerRecord>emptyList(), decoded.quarantine());
+        JsonObject kept = written.getAsJsonObject(LocationsCodec.PLAYERS)
+            .get(STEVE.toString())
+            .getAsJsonObject()
+            .getAsJsonObject(LocationsCodec.KITS);
+        assertEquals(
+            "нет предмета вовсе",
+            kept.getAsJsonArray("starter")
+                .get(0)
+                .getAsString());
+    }
+
+    @Test
+    void missingKitSectionsReadAsEmpty() {
+        JsonObject entry = entry("Steve", null, null);
+        PlayerRecord read = codec.readPlayers(playersFile(entry), null)
+            .players()
+            .get(STEVE);
+
+        assertTrue(
+            read.kitBuffer()
+                .isEmpty());
+        assertTrue(
+            read.kitClaims()
                 .isEmpty());
     }
 
