@@ -15,10 +15,14 @@ import com.mrleonardos.codecore.api.util.Scheduler;
 import com.mrleonardos.codeessentials.api.event.EssentialsEvents;
 import com.mrleonardos.codeessentials.api.event.HomeEvents;
 import com.mrleonardos.codeessentials.api.model.HomeRecord;
+import com.mrleonardos.codeessentials.api.model.KitDefinition;
+import com.mrleonardos.codeessentials.api.model.KitItem;
 import com.mrleonardos.codeessentials.api.model.PlayerRecord;
 import com.mrleonardos.codeessentials.api.store.ChangeBatch;
 import com.mrleonardos.codeessentials.api.store.StoreResult;
 import com.mrleonardos.codeessentials.api.teleport.SafeSpotResult;
+import com.mrleonardos.codeessentials.internal.kits.KitHands;
+import com.mrleonardos.codeessentials.internal.kits.KitStacking;
 
 final class ServiceTestStubs {
 
@@ -159,6 +163,67 @@ final class ServiceTestStubs {
         @Override
         public void changed(Set<UUID> players) {
             changes.add(players);
+        }
+    }
+
+    /** Слоты игрока для доставки китов: worn задаёт тест, dress запоминает результат. */
+    static final class Hands implements KitHands {
+
+        Optional<KitItem[]> worn = Optional.empty();
+        boolean dressable = true;
+        boolean dressed;
+        KitItem[] given;
+
+        Hands(Optional<KitItem[]> worn) {
+            this.worn = worn;
+        }
+
+        @Override
+        public Optional<KitItem[]> worn(UUID player) {
+            return worn;
+        }
+
+        @Override
+        public boolean dress(UUID player, KitItem[] slots) {
+            if (!dressable) {
+                return false;
+            }
+            dressed = true;
+            given = slots;
+            return true;
+        }
+
+        @Override
+        public KitStacking stacking() {
+            return new KitStacking() {
+
+                @Override
+                public int limit(KitItem item) {
+                    boolean onePerStack = item.count() == 1 || item.id()
+                        .endsWith("helmet")
+                        || item.id()
+                            .endsWith("boots");
+                    return onePerStack ? 1 : 64;
+                }
+
+                @Override
+                public boolean merges(KitItem held, KitItem added) {
+                    return held.sameKind(added) && limit(held) > 1;
+                }
+
+                @Override
+                public boolean accepts(int slot, KitItem item) {
+                    if (slot < KitDefinition.INVENTORY_SLOTS) {
+                        return true;
+                    }
+                    int armorType = KitDefinition.ARMOR_SLOTS - 1 - (slot - KitDefinition.INVENTORY_SLOTS);
+                    boolean helmet = item.id()
+                        .endsWith("helmet");
+                    boolean boots = item.id()
+                        .endsWith("boots");
+                    return armorType == 0 && helmet || armorType == 3 && boots;
+                }
+            };
         }
     }
 

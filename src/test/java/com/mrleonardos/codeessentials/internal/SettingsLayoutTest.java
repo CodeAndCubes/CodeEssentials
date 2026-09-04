@@ -19,13 +19,14 @@ import org.junit.jupiter.api.Test;
 
 import com.mrleonardos.codecore.api.config.Comment;
 import com.mrleonardos.codeessentials.internal.command.CommandRoots;
+import com.mrleonardos.codeessentials.internal.service.KitsFile;
 import com.mrleonardos.codeessentials.internal.service.SpawnFile;
 import com.mrleonardos.codeessentials.internal.service.WarpsFile;
 
 class SettingsLayoutTest {
 
     private static final List<Class<?>> FILES = Arrays
-        .asList(EssentialsSettings.class, CommandRoots.class, WarpsFile.class, SpawnFile.class);
+        .asList(EssentialsSettings.class, CommandRoots.class, WarpsFile.class, SpawnFile.class, KitsFile.class);
 
     private static final List<String> MOVED_OUT = Arrays.asList(
         "servicePriority",
