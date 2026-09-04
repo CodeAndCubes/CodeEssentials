@@ -18,10 +18,13 @@ import com.mrleonardos.codecore.api.command.CommandNode;
 import com.mrleonardos.codecore.api.command.CommandService;
 import com.mrleonardos.codeessentials.api.manage.BackService;
 import com.mrleonardos.codeessentials.api.manage.HomeService;
+import com.mrleonardos.codeessentials.api.manage.KitService;
 import com.mrleonardos.codeessentials.api.manage.SpawnService;
 import com.mrleonardos.codeessentials.api.manage.WarpService;
 import com.mrleonardos.codeessentials.api.model.BackPoint;
 import com.mrleonardos.codeessentials.api.model.HomeRecord;
+import com.mrleonardos.codeessentials.api.model.KitDefinition;
+import com.mrleonardos.codeessentials.api.model.KitItem;
 import com.mrleonardos.codeessentials.api.model.Point;
 import com.mrleonardos.codeessentials.api.model.SpawnTable;
 import com.mrleonardos.codeessentials.api.model.WarpRecord;
@@ -51,6 +54,11 @@ final class CommandTestStubs {
 
             @Override
             public ArgumentType<String> warpName() {
+                return raw -> raw;
+            }
+
+            @Override
+            public ArgumentType<String> kitName() {
                 return raw -> raw;
             }
 
@@ -375,6 +383,136 @@ final class CommandTestStubs {
         public boolean toggle(UUID player) {
             return toggled;
         }
+    }
+
+    static final class Kits implements KitService {
+
+        final Map<String, KitDefinition> stored = new TreeMap<>();
+        final Map<UUID, Map<String, Integer>> buffers = new LinkedHashMap<>();
+        final Set<UUID> takers = new LinkedHashSet<>();
+        final Map<UUID, Long> waits = new LinkedHashMap<>();
+        final List<String> claims = new ArrayList<>();
+        Claim answer;
+        String veto = "denied by the test";
+        String lastActor;
+
+        void put(String name, boolean once, int cooldownSeconds) {
+            stored.put(
+                name,
+                KitDefinition.named(name)
+                    .once(once)
+                    .cooldown(cooldownSeconds)
+                    .slot(0, KitItem.of("minecraft:bread", 1))
+                    .build());
+        }
+
+        void buffer(UUID player, String kit, int items) {
+            buffers.computeIfAbsent(player, key -> new LinkedHashMap<>())
+                .put(kit, Integer.valueOf(items));
+        }
+
+        @Override
+        public Map<String, KitDefinition> kits() {
+            return stored;
+        }
+
+        @Override
+        public Optional<KitDefinition> kit(String name) {
+            return Optional.ofNullable(stored.get(name));
+        }
+
+        @Override
+        public StoreResult define(KitDefinition kit, String actor) {
+            lastActor = actor;
+            if (kit.isEmpty()) {
+                return StoreResult.failure(StoreResult.Failure.INVALID_VALUE, "empty");
+            }
+            stored.put(kit.name(), kit);
+            return StoreResult.success();
+        }
+
+        @Override
+        public StoreResult delete(String name, String actor) {
+            lastActor = actor;
+            if (stored.remove(name) == null) {
+                return StoreResult.failure(StoreResult.Failure.NOT_FOUND, name);
+            }
+            return StoreResult.success();
+        }
+
+        @Override
+        public int pendingItems(UUID player) {
+            int count = 0;
+            for (Integer held : buffers.getOrDefault(player, Collections.emptyMap())
+                .values()) {
+                count += held.intValue();
+            }
+            return count;
+        }
+
+        @Override
+        public Map<String, Integer> pendingByKit(UUID player) {
+            return buffers.getOrDefault(player, Collections.emptyMap());
+        }
+
+        @Override
+        public boolean taken(UUID player, String kitName) {
+            return takers.contains(player);
+        }
+
+        @Override
+        public long cooldownLeft(UUID player, String kitName) {
+            Long left = waits.get(player);
+            return left == null ? 0L : left.longValue();
+        }
+
+        @Override
+        public Claim claim(UUID player, String kit, String actor) {
+            if (!stored.containsKey(kit)) {
+                return Claim.unknown();
+            }
+            claims.add(player + " " + kit);
+            if (answer != null) {
+                return answer;
+            }
+            int waiting = buffers.getOrDefault(player, Collections.emptyMap())
+                .getOrDefault(kit, Integer.valueOf(0))
+                .intValue();
+            if (taken(player, kit)) {
+                return Claim.refused(Claim.Outcome.TAKEN, waiting, 0, 0L);
+            }
+            long wait = cooldownLeft(player, kit);
+            if (wait > 0L) {
+                return Claim.refused(Claim.Outcome.COOLDOWN, waiting, 0, wait);
+            }
+            return Claim.granted(Claim.Outcome.DELIVERED, 1 + waiting, 0, 0);
+        }
+    }
+
+    static final class Editors implements KitEditors {
+
+        final List<UUID> opened = new ArrayList<>();
+        final List<UUID> captured = new ArrayList<>();
+        KitItem[] worn;
+        boolean online = true;
+
+        @Override
+        public boolean edit(UUID admin, KitDefinition kit) {
+            if (!online) {
+                return false;
+            }
+            opened.add(admin);
+            return true;
+        }
+
+        @Override
+        public Optional<KitItem[]> capture(UUID admin) {
+            captured.add(admin);
+            return Optional.ofNullable(worn);
+        }
+
+        @Override
+        public void closeAll() {}
     }
 
     static final class Spots implements RandomSpots {

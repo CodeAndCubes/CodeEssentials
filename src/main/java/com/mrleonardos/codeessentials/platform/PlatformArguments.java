@@ -11,6 +11,7 @@ import com.mrleonardos.codecore.api.command.ArgumentType;
 import com.mrleonardos.codecore.api.command.CommandInputException;
 import com.mrleonardos.codecore.api.command.CommandSender;
 import com.mrleonardos.codeessentials.api.manage.HomeService;
+import com.mrleonardos.codeessentials.api.manage.KitService;
 import com.mrleonardos.codeessentials.api.manage.WarpService;
 import com.mrleonardos.codeessentials.internal.command.EssentialsArguments;
 import com.mrleonardos.codeessentials.internal.command.EssentialsMessages;
@@ -23,13 +24,15 @@ final class PlatformArguments implements EssentialsArguments {
     private final NameResolver names;
     private final Supplier<HomeService> homes;
     private final Supplier<WarpService> warps;
+    private final Supplier<KitService> kits;
     private final CorePermissions permissions;
 
     PlatformArguments(NameResolver names, Supplier<HomeService> homes, Supplier<WarpService> warps,
-        CorePermissions permissions) {
+        Supplier<KitService> kits, CorePermissions permissions) {
         this.names = names;
         this.homes = homes;
         this.warps = warps;
+        this.kits = kits;
         this.permissions = permissions;
     }
 
@@ -113,6 +116,26 @@ final class PlatformArguments implements EssentialsArguments {
                 } catch (NumberFormatException notANumber) {
                     throw new CommandInputException(EssentialsMessages.ERROR_BAD_ARGUMENTS, raw);
                 }
+            }
+        };
+    }
+
+    @Override
+    public ArgumentType<String> kitName() {
+        return new ArgumentType<String>() {
+
+            @Override
+            public String parse(String raw) {
+                return lower(raw);
+            }
+
+            @Override
+            public List<String> suggestions(CommandSender sender, String partial) {
+                return startingWith(
+                    kits.get()
+                        .kits()
+                        .keySet(),
+                    partial);
             }
         };
     }

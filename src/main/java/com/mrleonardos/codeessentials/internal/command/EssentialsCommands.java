@@ -1,6 +1,7 @@
 package com.mrleonardos.codeessentials.internal.command;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -18,10 +19,13 @@ import com.mrleonardos.codecore.api.util.Durations;
 import com.mrleonardos.codeessentials.api.EssentialsLimits;
 import com.mrleonardos.codeessentials.api.manage.BackService;
 import com.mrleonardos.codeessentials.api.manage.HomeService;
+import com.mrleonardos.codeessentials.api.manage.KitService;
 import com.mrleonardos.codeessentials.api.manage.SpawnService;
 import com.mrleonardos.codeessentials.api.manage.WarpService;
 import com.mrleonardos.codeessentials.api.model.BackPoint;
 import com.mrleonardos.codeessentials.api.model.HomeRecord;
+import com.mrleonardos.codeessentials.api.model.KitDefinition;
+import com.mrleonardos.codeessentials.api.model.KitItem;
 import com.mrleonardos.codeessentials.api.model.Point;
 import com.mrleonardos.codeessentials.api.model.WarpRecord;
 import com.mrleonardos.codeessentials.api.store.StoreResult;
@@ -46,6 +50,7 @@ public final class EssentialsCommands {
 
     private static final String NAME = "name";
     private static final String PLAYER = "player";
+    private static final String KIT = "kit";
     private static final String WHO = "who";
     private static final String TARGET = "target";
     private static final String SECOND = "second";
@@ -65,6 +70,8 @@ public final class EssentialsCommands {
     private final Supplier<WarpService> warps;
     private final Supplier<SpawnService> spawns;
     private final Supplier<BackService> backs;
+    private final Supplier<KitService> kits;
+    private final KitEditors editors;
     private final TeleportRequests requests;
     private final RandomSpots spots;
     private final EssentialsArguments arguments;
@@ -75,8 +82,8 @@ public final class EssentialsCommands {
     public EssentialsCommands(Supplier<EssentialsSettings> settings, Supplier<SharedSettings> shared,
         Supplier<CommandRoots> roots, Supplier<TeleportService> teleports, Supplier<HomeService> homes,
         Supplier<WarpService> warps, Supplier<SpawnService> spawns, Supplier<BackService> backs,
-        TeleportRequests requests, RandomSpots spots, EssentialsArguments arguments, EssentialsSubjects subjects,
-        EssentialsMaintenance maintenance, Logger log) {
+        Supplier<KitService> kits, KitEditors editors, TeleportRequests requests, RandomSpots spots,
+        EssentialsArguments arguments, EssentialsSubjects subjects, EssentialsMaintenance maintenance, Logger log) {
         this.settings = settings;
         this.shared = shared;
         this.roots = roots;
@@ -85,6 +92,8 @@ public final class EssentialsCommands {
         this.warps = warps;
         this.spawns = spawns;
         this.backs = backs;
+        this.kits = kits;
+        this.editors = editors;
         this.requests = requests;
         this.spots = spots;
         this.arguments = arguments;
@@ -170,6 +179,11 @@ public final class EssentialsCommands {
                 .permission(Nodes.RANDOM)
                 .usage(EssentialsMessages.USAGE_RTP)
                 .executes(this::randomSpot));
+        all.add(kitRoot());
+        all.add(
+            CommandNode.literal(CommandRoots.KITS)
+                .usage(EssentialsMessages.USAGE_KITS)
+                .executes(this::listKits));
         all.add(
             CommandNode.literal(CommandRoots.TPA)
                 .permission(Nodes.TPA)
@@ -256,6 +270,38 @@ public final class EssentialsCommands {
                     .optionalArg(PLAYER, arguments.playerName())
                     .executes(this::jobs))
             .executes(this::branches);
+    }
+
+    private CommandNode kitRoot() {
+        return CommandNode.literal(CommandRoots.KIT)
+            .usage(EssentialsMessages.USAGE_KIT)
+            .child(
+                CommandNode.literal("edit")
+                    .permission(Nodes.KIT_ADMIN)
+                    .usage(EssentialsMessages.USAGE_KIT)
+                    .arg(NAME, arguments.kitName())
+                    .executes(this::editKit))
+            .child(
+                CommandNode.literal("save")
+                    .permission(Nodes.KIT_ADMIN)
+                    .usage(EssentialsMessages.USAGE_KIT)
+                    .arg(NAME, arguments.kitName())
+                    .executes(this::saveKit))
+            .child(
+                CommandNode.literal("delete")
+                    .permission(Nodes.KIT_ADMIN)
+                    .usage(EssentialsMessages.USAGE_KIT)
+                    .arg(NAME, arguments.kitName())
+                    .executes(this::deleteKit))
+            .child(
+                CommandNode.literal("give")
+                    .permission(Nodes.KIT_ADMIN)
+                    .usage(EssentialsMessages.USAGE_KIT)
+                    .arg(PLAYER, arguments.playerName())
+                    .arg(KIT, arguments.kitName())
+                    .executes(context -> giveKit(context)))
+            .optionalArg(NAME, arguments.kitName())
+            .executes(this::claimKit);
     }
 
     private void home(CommandContext context) {
@@ -566,6 +612,205 @@ public final class EssentialsCommands {
             context.reply(EssentialsMessages.RTP_SPAWN, Integer.valueOf(reply.attempts()));
         }
         start(context, self, target, TeleportCause.RANDOM, true);
+    }
+
+    private void claimKit(CommandContext context) {
+        if (!context.has(NAME)) {
+            listKits(context);
+            return;
+        }
+        UUID self = playerOf(context);
+        if (self == null) {
+            return;
+        }
+        String name = lower(context.get(NAME));
+        if (!subjects.allowed(context, Nodes.kit(name))) {
+            context.replyError(EssentialsMessages.ERROR_KIT_DENIED, name);
+            return;
+        }
+        claim(context, name, self, false);
+    }
+
+    private void listKits(CommandContext context) {
+        Map<String, KitDefinition> all = kits.get()
+            .kits();
+        if (all.isEmpty()) {
+            context.reply(EssentialsMessages.KITS_EMPTY);
+            return;
+        }
+        UUID self = subjects.playerOf(context)
+            .orElse(null);
+        Map<String, Integer> pending = self == null ? Collections.<String, Integer>emptyMap()
+            : kits.get()
+                .pendingByKit(self);
+        context.reply(EssentialsMessages.KITS, Integer.valueOf(all.size()));
+        for (KitDefinition kit : all.values()) {
+            replyKitLine(
+                context,
+                kit,
+                self,
+                pending.containsKey(kit.name()) ? pending.get(kit.name())
+                    .intValue() : 0);
+        }
+    }
+
+    private void replyKitLine(CommandContext context, KitDefinition kit, UUID self, int buffered) {
+        String name = kit.name();
+        boolean locked = !subjects.allowed(context, Nodes.kit(name));
+        if (buffered > 0) {
+            context.reply(
+                locked ? EssentialsMessages.KITS_LINE_BUFFERED_LOCKED : EssentialsMessages.KITS_LINE_BUFFERED,
+                name,
+                Integer.valueOf(buffered));
+            return;
+        }
+        if (kit.once() && kits.get()
+            .taken(self, name)) {
+            context
+                .reply(locked ? EssentialsMessages.KITS_LINE_TAKEN_LOCKED : EssentialsMessages.KITS_LINE_TAKEN, name);
+            return;
+        }
+        long left = kits.get()
+            .cooldownLeft(self, name);
+        if (left > 0L) {
+            context.reply(
+                locked ? EssentialsMessages.KITS_LINE_WAIT_LOCKED : EssentialsMessages.KITS_LINE_WAIT,
+                name,
+                Durations.format(seconds(left)));
+            return;
+        }
+        context.reply(locked ? EssentialsMessages.KITS_LINE_READY_LOCKED : EssentialsMessages.KITS_LINE_READY, name);
+    }
+
+    private void editKit(CommandContext context) {
+        UUID self = playerOf(context);
+        if (self == null) {
+            return;
+        }
+        String name = lower(context.get(NAME));
+        KitDefinition kit = kits.get()
+            .kit(name)
+            .orElseGet(
+                () -> KitDefinition.named(name)
+                    .build());
+        if (!editors.edit(self, kit)) {
+            context.replyError(EssentialsMessages.ERROR_SENDER_NOT_PLAYER);
+            return;
+        }
+        context.reply(EssentialsMessages.KIT_EDITOR, name);
+    }
+
+    private void saveKit(CommandContext context) {
+        UUID self = playerOf(context);
+        if (self == null) {
+            return;
+        }
+        String name = lower(context.get(NAME));
+        KitItem[] worn = editors.capture(self)
+            .orElse(null);
+        if (worn == null) {
+            context.replyError(EssentialsMessages.ERROR_SENDER_NOT_PLAYER);
+            return;
+        }
+        KitDefinition.Builder builder = KitDefinition.named(name);
+        for (int slot = 0; slot < KitDefinition.SLOTS; slot++) {
+            if (worn[slot] != null) {
+                builder.slot(slot, worn[slot]);
+            }
+        }
+        define(context, builder.build());
+    }
+
+    private void deleteKit(CommandContext context) {
+        String name = lower(context.get(NAME));
+        StoreResult deleted = kits.get()
+            .delete(name, subjects.actorOf(context));
+        if (deleted.successful()) {
+            context.reply(EssentialsMessages.KIT_DELETED, name);
+            return;
+        }
+        context.replyError(EssentialsMessages.failureKey(deleted), name);
+    }
+
+    private void giveKit(CommandContext context) {
+        String name = lower(context.get(KIT));
+        if (!kits.get()
+            .kit(name)
+            .isPresent()) {
+            context.replyError(EssentialsMessages.ERROR_KIT_UNKNOWN, name);
+            return;
+        }
+        String asked = context.get(PLAYER);
+        UUID target = subjects.resolve(asked)
+            .orElse(null);
+        if (target == null) {
+            context.replyError(EssentialsMessages.ERROR_UNKNOWN_PLAYER, asked);
+            return;
+        }
+        claim(context, name, target, true);
+    }
+
+    private void claim(CommandContext context, String name, UUID target, boolean given) {
+        KitService.Claim answer = kits.get()
+            .claim(target, name, subjects.actorOf(context));
+        switch (answer.outcome()) {
+            case DELIVERED:
+                context.reply(EssentialsMessages.KIT_CLAIMED, name, Integer.valueOf(answer.delivered()));
+                if (answer.buffered() > 0) {
+                    context.reply(EssentialsMessages.KIT_OVERFLOW, Integer.valueOf(answer.buffered()));
+                }
+                if (given) {
+                    context.reply(EssentialsMessages.KIT_GIVEN, name, nameOf(target));
+                }
+                return;
+            case STASHED:
+                context.reply(EssentialsMessages.KIT_STASHED, name, Integer.valueOf(answer.pending()));
+                if (given) {
+                    context.reply(EssentialsMessages.KIT_GIVEN, name, nameOf(target));
+                }
+                return;
+            case COOLDOWN:
+                reportDebt(context, name, answer);
+                context.replyError(
+                    EssentialsMessages.ERROR_KIT_COOLDOWN,
+                    name,
+                    Durations.format(seconds(answer.waitMillis())));
+                return;
+            case TAKEN:
+                reportDebt(context, name, answer);
+                context.replyError(EssentialsMessages.ERROR_KIT_TAKEN, name);
+                return;
+            case VETOED:
+                reportDebt(context, name, answer);
+                context.replyError(
+                    EssentialsMessages.ERROR_VETOED,
+                    answer.reason()
+                        .orElse(EMPTY_MARKER));
+                return;
+            default:
+                context.replyError(EssentialsMessages.ERROR_KIT_UNKNOWN, name);
+        }
+    }
+
+    private void reportDebt(CommandContext context, String name, KitService.Claim answer) {
+        if (answer.delivered() > 0) {
+            context.reply(EssentialsMessages.KIT_DEBT, name, Integer.valueOf(answer.delivered()));
+        }
+    }
+
+    private void define(CommandContext context, KitDefinition kit) {
+        StoreResult written = kits.get()
+            .define(kit, subjects.actorOf(context));
+        if (!written.successful()) {
+            if (written.failure()
+                .orElse(null) == StoreResult.Failure.INVALID_VALUE) {
+                context.replyError(EssentialsMessages.ERROR_KIT_EMPTY);
+                return;
+            }
+            context.replyError(EssentialsMessages.failureKey(written), kit.name());
+            return;
+        }
+        context.reply(EssentialsMessages.KIT_SAVED, kit.name(), Integer.valueOf(kit.size()));
     }
 
     private void reportSpot(CommandContext context, RandomSpots.Reply reply) {

@@ -17,8 +17,11 @@ import org.junit.jupiter.api.Test;
 import com.mrleonardos.codecore.api.command.CommandInputException;
 import com.mrleonardos.codecore.api.command.SenderKind;
 import com.mrleonardos.codeessentials.api.manage.HomeService;
+import com.mrleonardos.codeessentials.api.manage.KitService;
 import com.mrleonardos.codeessentials.api.manage.WarpService;
 import com.mrleonardos.codeessentials.api.model.HomeRecord;
+import com.mrleonardos.codeessentials.api.model.KitDefinition;
+import com.mrleonardos.codeessentials.api.model.KitItem;
 import com.mrleonardos.codeessentials.api.model.PlayerRecord;
 import com.mrleonardos.codeessentials.api.model.Point;
 import com.mrleonardos.codeessentials.api.model.WarpRecord;
@@ -35,6 +38,7 @@ class PlatformArgumentsTest {
         new NameResolver(EssentialsState::empty),
         NoHomes::new,
         NoWarps::new,
+        NoKits::new,
         new CorePermissions(SharedSettings::defaults, LogManager.getLogger("CodeEssentialsTest")));
 
     @Test
@@ -108,6 +112,7 @@ class PlatformArgumentsTest {
                     .withPlayer(PlayerRecord.empty(STEVE, "Steve"))),
             NoHomes::new,
             NoWarps::new,
+            NoKits::new,
             new CorePermissions(SharedSettings::defaults, LogManager.getLogger("CodeEssentialsTest")));
 
         assertEquals(
@@ -123,6 +128,7 @@ class PlatformArgumentsTest {
             new NameResolver(EssentialsState::empty),
             () -> new OwnHomes(STEVE, "base", "mine"),
             NoWarps::new,
+            NoKits::new,
             new CorePermissions(SharedSettings::defaults, LogManager.getLogger("CodeEssentialsTest")));
 
         assertEquals(
@@ -180,6 +186,67 @@ class PlatformArgumentsTest {
         @Override
         public Map<String, HomeRecord> homes(UUID player) {
             return owner.equals(player) ? homes : Collections.<String, HomeRecord>emptyMap();
+        }
+    }
+
+    /** Киты сервера: перечень имён задаёт тест. */
+    private static final class NoKits implements KitService {
+
+        private final Map<String, KitDefinition> kits = new LinkedHashMap<>();
+
+        NoKits(String... names) {
+            for (String name : names) {
+                kits.put(
+                    name,
+                    KitDefinition.named(name)
+                        .slot(0, KitItem.of("minecraft:bread", 1))
+                        .build());
+            }
+        }
+
+        @Override
+        public Map<String, KitDefinition> kits() {
+            return kits;
+        }
+
+        @Override
+        public Optional<KitDefinition> kit(String name) {
+            return Optional.ofNullable(kits.get(name));
+        }
+
+        @Override
+        public StoreResult define(KitDefinition kit, String actor) {
+            return StoreResult.success();
+        }
+
+        @Override
+        public StoreResult delete(String name, String actor) {
+            return StoreResult.success();
+        }
+
+        @Override
+        public int pendingItems(UUID player) {
+            return 0;
+        }
+
+        @Override
+        public Map<String, Integer> pendingByKit(UUID player) {
+            return Collections.emptyMap();
+        }
+
+        @Override
+        public boolean taken(UUID player, String kitName) {
+            return false;
+        }
+
+        @Override
+        public long cooldownLeft(UUID player, String kitName) {
+            return 0L;
+        }
+
+        @Override
+        public Claim claim(UUID player, String kit, String actor) {
+            return Claim.unknown();
         }
     }
 

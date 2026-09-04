@@ -24,8 +24,11 @@ import com.mrleonardos.codecore.api.command.ArgumentSpec;
 import com.mrleonardos.codecore.api.command.CommandMessages;
 import com.mrleonardos.codecore.api.command.CommandNode;
 import com.mrleonardos.codeessentials.api.EssentialsLimits;
+import com.mrleonardos.codeessentials.api.manage.KitService;
 import com.mrleonardos.codeessentials.api.model.BackPoint;
 import com.mrleonardos.codeessentials.api.model.HomeRecord;
+import com.mrleonardos.codeessentials.api.model.KitDefinition;
+import com.mrleonardos.codeessentials.api.model.KitItem;
 import com.mrleonardos.codeessentials.api.model.Point;
 import com.mrleonardos.codeessentials.api.model.SpawnTable;
 import com.mrleonardos.codeessentials.api.model.WarpRecord;
@@ -56,6 +59,8 @@ class EssentialsCommandsTest {
     private CommandTestStubs.Warps warps;
     private CommandTestStubs.Spawns spawns;
     private CommandTestStubs.Backs backs;
+    private CommandTestStubs.Kits kits;
+    private CommandTestStubs.Editors editors;
     private CommandTestStubs.Requests requests;
     private CommandTestStubs.Spots spots;
     private CommandTestStubs.Maintenance maintenance;
@@ -72,6 +77,8 @@ class EssentialsCommandsTest {
         warps = new CommandTestStubs.Warps();
         spawns = new CommandTestStubs.Spawns();
         backs = new CommandTestStubs.Backs();
+        kits = new CommandTestStubs.Kits();
+        editors = new CommandTestStubs.Editors();
         requests = new CommandTestStubs.Requests();
         spots = new CommandTestStubs.Spots();
         maintenance = new CommandTestStubs.Maintenance();
@@ -84,6 +91,8 @@ class EssentialsCommandsTest {
             () -> warps,
             () -> spawns,
             () -> backs,
+            () -> kits,
+            editors,
             requests,
             spots,
             CommandTestStubs.arguments(),
@@ -130,6 +139,12 @@ class EssentialsCommandsTest {
         assertEquals(Nodes.ADMIN_TELEPORT, root(CommandRoots.TPPOS).permissionNode());
         assertNull(root(CommandRoots.ECANCEL).permissionNode(), "своя работа снимается без ноды");
         assertNull(root(CommandRoots.ESSENTIALS).permissionNode(), "корень essentials ноды не несёт");
+        assertNull(root(CommandRoots.KIT).permissionNode(), "право кита спрашивается на имя");
+        assertNull(root(CommandRoots.KITS).permissionNode(), "список китов открыт всем");
+        assertEquals(Nodes.KIT_ADMIN, child(root(CommandRoots.KIT), "edit").permissionNode());
+        assertEquals(Nodes.KIT_ADMIN, child(root(CommandRoots.KIT), "save").permissionNode());
+        assertEquals(Nodes.KIT_ADMIN, child(root(CommandRoots.KIT), "delete").permissionNode());
+        assertEquals(Nodes.KIT_ADMIN, child(root(CommandRoots.KIT), "give").permissionNode());
     }
 
     @Test
@@ -1199,6 +1214,288 @@ class EssentialsCommandsTest {
             context.last()
                 .is(key),
             key);
+    }
+
+    @Test
+    void aClaimWithoutTheKitNodeIsRefused() {
+        kits.put("starter", false, 0);
+        TestCommandContext context = new TestCommandContext().set("name", "starter");
+
+        execute(root(CommandRoots.KIT), context);
+
+        assertTrue(
+            context.last()
+                .is(EssentialsMessages.ERROR_KIT_DENIED));
+        assertTrue(kits.claims.isEmpty());
+    }
+
+    @Test
+    void aClaimOfAnUnknownKitNamesIt() {
+        kits.put("starter", false, 0);
+        subjects.nodes.add(Nodes.kit("nope"));
+        TestCommandContext context = new TestCommandContext().set("name", "nope");
+
+        execute(root(CommandRoots.KIT), context);
+
+        assertTrue(
+            context.last()
+                .is(EssentialsMessages.ERROR_KIT_UNKNOWN),
+            String.valueOf(context.last().arguments));
+    }
+
+    @Test
+    void aClaimReportsWhatArrived() {
+        kits.put("starter", false, 0);
+        subjects.nodes.add(Nodes.kit("starter"));
+        TestCommandContext context = new TestCommandContext().set("name", "starter");
+
+        execute(root(CommandRoots.KIT), context);
+
+        assertTrue(
+            context.last()
+                .is(EssentialsMessages.KIT_CLAIMED));
+        assertEquals("starter", context.last().arguments.get(0));
+    }
+
+    @Test
+    void aCooldownNamesTheWaitAndTheDebt() {
+        kits.put("starter", true, 60);
+        kits.waits.put(STEVE, Long.valueOf(90_000L));
+        kits.buffer(STEVE, "starter", 4);
+        subjects.nodes.add(Nodes.kit("starter"));
+        TestCommandContext context = new TestCommandContext().set("name", "starter");
+
+        execute(root(CommandRoots.KIT), context);
+
+        assertTrue(
+            context.sent()
+                .get(0)
+                .is(EssentialsMessages.KIT_DEBT),
+            String.valueOf(context.sent()));
+        assertTrue(
+            context.last()
+                .is(EssentialsMessages.ERROR_KIT_COOLDOWN));
+    }
+
+    @Test
+    void aTakenKitSaysSo() {
+        kits.put("starter", true, 0);
+        kits.takers.add(STEVE);
+        subjects.nodes.add(Nodes.kit("starter"));
+        TestCommandContext context = new TestCommandContext().set("name", "starter");
+
+        execute(root(CommandRoots.KIT), context);
+
+        assertTrue(
+            context.last()
+                .is(EssentialsMessages.ERROR_KIT_TAKEN));
+    }
+
+    @Test
+    void aVetoIsReportedWithItsReason() {
+        kits.put("starter", false, 0);
+        kits.veto = "закрыто приват-модом";
+        kits.answer = KitService.Claim.vetoed(kits.veto, 0, 0);
+        subjects.nodes.add(Nodes.kit("starter"));
+        TestCommandContext context = new TestCommandContext().set("name", "starter");
+
+        execute(root(CommandRoots.KIT), context);
+
+        assertTrue(
+            context.last()
+                .is(EssentialsMessages.ERROR_VETOED));
+        assertEquals(kits.veto, context.last().arguments.get(0));
+    }
+
+    @Test
+    void bareKitListsKitsLikeKitsDoes() {
+        kits.put("starter", false, 0);
+        subjects.nodes.add(Nodes.kit("starter"));
+
+        TestCommandContext bare = new TestCommandContext();
+        execute(root(CommandRoots.KIT), bare);
+        TestCommandContext listed = new TestCommandContext();
+        execute(root(CommandRoots.KITS), listed);
+
+        assertEquals(keys(listed.sent()), keys(bare.sent()));
+        assertEquals(
+            Collections.singletonList(EssentialsMessages.KITS_LINE_READY),
+            keys(
+                bare.sent()
+                    .subList(
+                        1,
+                        bare.sent()
+                            .size())));
+    }
+
+    private static List<String> keys(List<TestCommandContext.Sent> sent) {
+        List<String> names = new ArrayList<>();
+        for (TestCommandContext.Sent line : sent) {
+            names.add(line.key);
+        }
+        return names;
+    }
+
+    @Test
+    void theKitListMarksLockedKitsAndStates() {
+        kits.put("starter", true, 60);
+        kits.put("vip", true, 0);
+        kits.put("welcome", false, 0);
+        kits.takers.add(STEVE);
+        kits.buffer(STEVE, "vip", 7);
+        subjects.nodes.add(Nodes.kit("starter"));
+        subjects.nodes.add(Nodes.kit("welcome"));
+
+        TestCommandContext context = new TestCommandContext();
+        execute(root(CommandRoots.KITS), context);
+
+        assertEquals(
+            4,
+            context.sent()
+                .size(),
+            String.valueOf(context.sent()));
+        assertTrue(
+            context.sent()
+                .get(0)
+                .is(EssentialsMessages.KITS));
+        assertTrue(
+            context.sent()
+                .get(1)
+                .is(EssentialsMessages.KITS_LINE_TAKEN),
+            String.valueOf(context.sent()));
+        assertTrue(
+            context.sent()
+                .get(2)
+                .is(EssentialsMessages.KITS_LINE_BUFFERED_LOCKED),
+            String.valueOf(context.sent()));
+        assertTrue(
+            context.sent()
+                .get(3)
+                .is(EssentialsMessages.KITS_LINE_READY));
+    }
+
+    @Test
+    void theKitListHidesTheWaitBehindTheBuffer() {
+        kits.put("starter", true, 60);
+        kits.waits.put(STEVE, Long.valueOf(40_000L));
+        kits.buffer(STEVE, "starter", 3);
+        subjects.nodes.add(Nodes.kit("starter"));
+
+        TestCommandContext context = new TestCommandContext();
+        execute(root(CommandRoots.KITS), context);
+
+        assertTrue(
+            context.sent()
+                .get(1)
+                .is(EssentialsMessages.KITS_LINE_BUFFERED),
+            String.valueOf(context.sent()));
+    }
+
+    @Test
+    void anEmptySnapshotIsRefused() {
+        editors.worn = new KitItem[KitDefinition.SLOTS];
+
+        TestCommandContext context = new TestCommandContext().set("name", "starter");
+        execute(child(root(CommandRoots.KIT), "save"), context);
+
+        assertTrue(
+            context.last()
+                .is(EssentialsMessages.ERROR_KIT_EMPTY),
+            String.valueOf(context.last()));
+        assertTrue(kits.stored.isEmpty());
+    }
+
+    @Test
+    void aSnapshotWritesTheKitFromTheInventory() {
+        KitItem[] worn = new KitItem[KitDefinition.SLOTS];
+        worn[0] = KitItem.of("minecraft:bread", 16);
+        worn[39] = KitItem.of("minecraft:iron_helmet", 1);
+        editors.worn = worn;
+
+        TestCommandContext context = new TestCommandContext().set("name", "Starter");
+        execute(child(root(CommandRoots.KIT), "save"), context);
+
+        assertTrue(
+            context.last()
+                .is(EssentialsMessages.KIT_SAVED));
+        KitDefinition saved = kits.kit("starter")
+            .orElseThrow(() -> new AssertionError("kit is gone"));
+        assertEquals(2, saved.size());
+        assertTrue(
+            saved.slot(0)
+                .isPresent());
+        assertTrue(
+            saved.slot(39)
+                .isPresent());
+        assertEquals("Steve", kits.lastActor);
+    }
+
+    @Test
+    void deletionRepliesAboutMissingAndRemovedKits() {
+        TestCommandContext missing = new TestCommandContext().set("name", "nope");
+        execute(child(root(CommandRoots.KIT), "delete"), missing);
+        assertTrue(
+            missing.last()
+                .is(EssentialsMessages.ERROR_NOT_FOUND));
+
+        kits.put("starter", false, 0);
+        TestCommandContext removed = new TestCommandContext().set("name", "starter");
+        execute(child(root(CommandRoots.KIT), "delete"), removed);
+        assertTrue(
+            removed.last()
+                .is(EssentialsMessages.KIT_DELETED));
+        assertTrue(kits.stored.isEmpty());
+    }
+
+    @Test
+    void givingAKitToAnotherPlayerNamesTheReceiver() {
+        kits.put("starter", false, 0);
+        subjects.nodes.add(Nodes.KIT_ADMIN);
+
+        TestCommandContext context = new TestCommandContext().set("player", "Alex")
+            .set("kit", "starter");
+        execute(child(root(CommandRoots.KIT), "give"), context);
+
+        assertTrue(kits.claims.contains(ALEX + " starter"), String.valueOf(kits.claims));
+        assertTrue(
+            context.sent()
+                .stream()
+                .anyMatch(sent -> sent.is(EssentialsMessages.KIT_GIVEN)));
+    }
+
+    @Test
+    void givingAKitToAnUnknownNameIsRefused() {
+        kits.put("starter", false, 0);
+        subjects.nodes.add(Nodes.KIT_ADMIN);
+
+        TestCommandContext context = new TestCommandContext().set("player", "Herobrine")
+            .set("kit", "starter");
+        execute(child(root(CommandRoots.KIT), "give"), context);
+
+        assertTrue(
+            context.last()
+                .is(EssentialsMessages.ERROR_UNKNOWN_PLAYER));
+        assertTrue(kits.claims.isEmpty());
+    }
+
+    @Test
+    void theEditorOpensForAPlayerAndRefusesTheConsole() {
+        kits.put("starter", false, 0);
+        subjects.nodes.add(Nodes.KIT_ADMIN);
+        TestCommandContext context = new TestCommandContext().set("name", "starter");
+        execute(child(root(CommandRoots.KIT), "edit"), context);
+        assertTrue(
+            context.last()
+                .is(EssentialsMessages.KIT_EDITOR));
+        assertEquals(STEVE, editors.opened.get(0));
+
+        editors.online = false;
+        subjects.self = null;
+        TestCommandContext console = new TestCommandContext().set("name", "starter");
+        execute(child(root(CommandRoots.KIT), "edit"), console);
+        assertTrue(
+            console.last()
+                .is(EssentialsMessages.ERROR_SENDER_NOT_PLAYER));
     }
 
     private CommandNode root(String name) {

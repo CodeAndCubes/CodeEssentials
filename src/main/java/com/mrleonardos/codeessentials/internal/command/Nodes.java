@@ -20,6 +20,9 @@ public final class Nodes {
 
     public static final String RANDOM = "codeessentials.rtp";
 
+    public static final String KIT = "codeessentials.kit.";
+    public static final String KIT_ADMIN = "codeessentials.admin.kit";
+
     public static final String TPA = "codeessentials.tpa";
     public static final String TPA_HERE = "codeessentials.tpa.here";
     public static final String TPA_TOGGLE = "codeessentials.tpa.toggle";
@@ -35,5 +38,9 @@ public final class Nodes {
 
     public static String warpGo(String warp) {
         return WARP_GO + warp;
+    }
+
+    public static String kit(String kit) {
+        return KIT + kit;
     }
 }

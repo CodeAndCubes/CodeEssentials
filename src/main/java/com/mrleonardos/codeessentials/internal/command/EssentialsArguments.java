@@ -10,5 +10,7 @@ public interface EssentialsArguments {
 
     ArgumentType<String> warpName();
 
+    ArgumentType<String> kitName();
+
     ArgumentType<Double> coordinate();
 }
