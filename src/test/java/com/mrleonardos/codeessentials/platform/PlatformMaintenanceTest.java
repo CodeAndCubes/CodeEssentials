@@ -20,6 +20,7 @@ import com.mrleonardos.codeessentials.internal.EssentialsSection;
 import com.mrleonardos.codeessentials.internal.EssentialsSettings;
 import com.mrleonardos.codeessentials.internal.command.CommandRoots;
 import com.mrleonardos.codeessentials.internal.engine.EngineRules;
+import com.mrleonardos.codeessentials.internal.service.KitsFile;
 import com.mrleonardos.codeessentials.internal.service.SpawnFile;
 import com.mrleonardos.codeessentials.internal.service.WarpsFile;
 import com.mrleonardos.codeessentials.internal.store.JsonPlayerDataStore;
@@ -70,7 +71,7 @@ class PlatformMaintenanceTest {
         StoreResult reloaded = maintenance.reloadSettings();
 
         assertEquals(
-            "warmup 3s, 1 warp(s), 0 spawn point(s), " + PlatformMaintenance.ROOTS_NEED_RESTART,
+            "warmup 3s, 1 warp(s), 0 kit(s), 0 spawn point(s), " + PlatformMaintenance.ROOTS_NEED_RESTART,
             reloaded.message()
                 .orElse(""),
             "правки корней команд ждут перезапуска, и ответ обязан об этом сказать");
@@ -131,6 +132,7 @@ class PlatformMaintenanceTest {
         ConfigFile<CommandRoots> roots = configs.open(CommandRoots.spec());
         ConfigFile<WarpsFile> warps = configs.open(WarpsFile.spec());
         ConfigFile<SpawnFile> spawn = configs.open(SpawnFile.spec());
+        ConfigFile<KitsFile> kits = configs.open(KitsFile.spec());
         return new PlatformMaintenance(
             configs,
             settings,
@@ -138,6 +140,7 @@ class PlatformMaintenanceTest {
             roots,
             warps,
             spawn,
+            kits,
             EngineRules::defaults,
             refreshed::incrementAndGet,
             LogManager.getLogger("codeessentials-test"));
