@@ -5,6 +5,7 @@ import com.mrleonardos.codecore.api.config.ConfigRoles;
 import com.mrleonardos.codeessentials.api.EssentialsCapabilities;
 import com.mrleonardos.codeessentials.api.manage.BackService;
 import com.mrleonardos.codeessentials.api.manage.HomeService;
+import com.mrleonardos.codeessentials.api.manage.KitService;
 import com.mrleonardos.codeessentials.api.manage.SpawnService;
 import com.mrleonardos.codeessentials.api.manage.WarpService;
 import com.mrleonardos.codeessentials.api.teleport.TeleportService;
@@ -21,13 +22,15 @@ public final class EssentialsRole {
                 EssentialsCapabilities.SPAWN,
                 EssentialsCapabilities.BACK,
                 EssentialsCapabilities.TPA,
-                EssentialsCapabilities.RANDOM)
+                EssentialsCapabilities.RANDOM,
+                EssentialsCapabilities.KITS)
             .services(
                 TeleportService.class,
                 HomeService.class,
                 WarpService.class,
                 SpawnService.class,
-                BackService.class)
+                BackService.class,
+                KitService.class)
             .build();
     }
 }

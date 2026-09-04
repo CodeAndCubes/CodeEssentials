@@ -36,5 +36,8 @@ public final class EssentialsCapabilities {
     /** Перенос в случайную точку мира: {@code /rtp}. */
     public static final RoleCapability RANDOM = RoleCapability.of("rtp");
 
+    /** Киты сервера: {@code /kit}, {@code /kits}. */
+    public static final RoleCapability KITS = RoleCapability.of("kits");
+
     private EssentialsCapabilities() {}
 }

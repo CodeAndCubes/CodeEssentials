@@ -101,4 +101,7 @@ public interface EssentialsEvents {
 
     /** Слушатели домов. */
     HomeEvents homes();
+
+    /** Слушатели китов. */
+    KitEvents kits();
 }

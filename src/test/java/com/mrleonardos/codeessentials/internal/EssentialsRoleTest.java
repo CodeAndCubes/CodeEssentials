@@ -26,6 +26,7 @@ import com.mrleonardos.codeessentials.TestConfigs;
 import com.mrleonardos.codeessentials.api.EssentialsCapabilities;
 import com.mrleonardos.codeessentials.api.manage.BackService;
 import com.mrleonardos.codeessentials.api.manage.HomeService;
+import com.mrleonardos.codeessentials.api.manage.KitService;
 import com.mrleonardos.codeessentials.api.manage.SpawnService;
 import com.mrleonardos.codeessentials.api.manage.WarpService;
 import com.mrleonardos.codeessentials.api.teleport.TeleportService;
@@ -35,7 +36,7 @@ import com.mrleonardos.codeessentials.internal.store.JsonPlayerDataStore;
 class EssentialsRoleTest {
 
     private static final Set<String> ABILITIES = new LinkedHashSet<>(
-        Arrays.asList("homes", "warps", "spawn", "back", "tpa", "rtp"));
+        Arrays.asList("homes", "warps", "spawn", "back", "tpa", "rtp", "kits"));
 
     @Test
     void theRoleNamesEveryAbilityAndEveryServiceItCloses() {
@@ -50,7 +51,8 @@ class EssentialsRoleTest {
                     HomeService.class,
                     WarpService.class,
                     SpawnService.class,
-                    BackService.class)),
+                    BackService.class,
+                    KitService.class)),
             new LinkedHashSet<>(spec.services()));
     }
 

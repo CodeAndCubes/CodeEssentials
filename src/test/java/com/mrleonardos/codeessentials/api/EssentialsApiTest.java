@@ -22,6 +22,7 @@ import org.junit.jupiter.api.Test;
 
 import com.mrleonardos.codeessentials.api.event.EssentialsEvents;
 import com.mrleonardos.codeessentials.api.event.HomeEvents;
+import com.mrleonardos.codeessentials.api.event.KitEvents;
 import com.mrleonardos.codeessentials.api.event.TeleportEvents;
 import com.mrleonardos.codeessentials.api.model.PlayerRecord;
 import com.mrleonardos.codeessentials.api.model.Point;
@@ -294,6 +295,11 @@ class EssentialsApiTest {
 
         @Override
         public HomeEvents homes() {
+            return null;
+        }
+
+        @Override
+        public KitEvents kits() {
             return null;
         }
     }

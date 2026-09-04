@@ -10,6 +10,7 @@ import java.util.TreeMap;
 import com.mrleonardos.codeessentials.api.event.EssentialsEvents;
 import com.mrleonardos.codeessentials.api.manage.BackService;
 import com.mrleonardos.codeessentials.api.manage.HomeService;
+import com.mrleonardos.codeessentials.api.manage.KitService;
 import com.mrleonardos.codeessentials.api.manage.SpawnService;
 import com.mrleonardos.codeessentials.api.manage.WarpService;
 import com.mrleonardos.codeessentials.api.store.PlayerDataStore;
@@ -135,6 +136,11 @@ public final class EssentialsApi {
     /** Стек возврата. */
     public static BackService backs() {
         return require(BackService.class);
+    }
+
+    /** Киты сервера. */
+    public static KitService kits() {
+        return require(KitService.class);
     }
 
     /** Реестры слушателей. */

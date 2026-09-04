@@ -8,12 +8,14 @@ import java.util.Objects;
 
 import com.mrleonardos.codeessentials.api.event.EssentialsEvents;
 import com.mrleonardos.codeessentials.api.event.HomeEvents;
+import com.mrleonardos.codeessentials.api.event.KitEvents;
 import com.mrleonardos.codeessentials.api.event.TeleportEvents;
 
 public final class Listeners implements EssentialsEvents {
 
     private final Teleports teleports = new Teleports();
     private final Homes homes = new Homes();
+    private final Kits kits = new Kits();
 
     @Override
     public TeleportEvents teleports() {
@@ -25,9 +27,15 @@ public final class Listeners implements EssentialsEvents {
         return homes;
     }
 
+    @Override
+    public KitEvents kits() {
+        return kits;
+    }
+
     public void clear() {
         teleports.ranked.clear();
         homes.ranked.clear();
+        kits.ranked.clear();
     }
 
     public static final class Teleports implements TeleportEvents {
@@ -51,6 +59,26 @@ public final class Listeners implements EssentialsEvents {
     }
 
     public static final class Homes implements HomeEvents {
+
+        private final Ranked<Listener> ranked = new Ranked<>();
+
+        @Override
+        public void register(int priority, Listener listener) {
+            ranked.add(priority, listener);
+        }
+
+        @Override
+        public void unregister(Listener listener) {
+            ranked.drop(listener);
+        }
+
+        @Override
+        public List<Listener> listeners() {
+            return ranked.all();
+        }
+    }
+
+    public static final class Kits implements KitEvents {
 
         private final Ranked<Listener> ranked = new Ranked<>();
 

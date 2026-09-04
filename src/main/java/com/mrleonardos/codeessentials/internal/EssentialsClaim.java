@@ -25,7 +25,8 @@ public final class EssentialsClaim implements RoleAdapter {
                 EssentialsCapabilities.SPAWN,
                 EssentialsCapabilities.BACK,
                 EssentialsCapabilities.TPA,
-                EssentialsCapabilities.RANDOM)));
+                EssentialsCapabilities.RANDOM,
+                EssentialsCapabilities.KITS)));
 
     private final Supplier<RoleServices> build;
 
