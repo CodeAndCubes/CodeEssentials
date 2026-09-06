@@ -131,7 +131,7 @@ public final class KitDelivery {
             if (slots[slot] != null || !stacking.accepts(slot, item)) {
                 continue;
             }
-            remaining -= put(item, remaining, slots, slot);
+            remaining -= put(item, Math.min(remaining, stacking.limit(item)), slots, slot);
         }
         if (remaining > 0) {
             setAside(pending, item.withCount(remaining));

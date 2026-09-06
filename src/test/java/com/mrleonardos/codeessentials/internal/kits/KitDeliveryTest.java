@@ -93,6 +93,19 @@ class KitDeliveryTest {
     }
 
     @Test
+    void aRecordThatIsNotAWholeNumberOfStacksKeepsEverySlotWithinTheLimit() {
+        KitDefinition kit = kit(slot(2, KitItem.of("minecraft:bread", 200)));
+
+        KitDelivery report = KitDelivery.deliver(kit, debt(), slots(), stacking());
+
+        assertEquals(KitItem.of("minecraft:bread", 64), report.slots()[2]);
+        assertEquals(KitItem.of("minecraft:bread", 64), report.slots()[0]);
+        assertEquals(KitItem.of("minecraft:bread", 64), report.slots()[1]);
+        assertEquals(KitItem.of("minecraft:bread", 8), report.slots()[3], "хвост ложится отдельной стопкой");
+        assertEquals(200, report.delivered());
+    }
+
+    @Test
     void aFullInventoryLeavesEverythingInTheBuffer() {
         KitDefinition kit = kit(slot(0, BREAD), slot(39, HELMET));
 
