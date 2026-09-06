@@ -45,7 +45,7 @@ final class KitChests implements KitEditors {
             return false;
         }
         close(admin);
-        EditorInventory inventory = new EditorInventory(kit.name(), () -> close(admin));
+        EditorInventory inventory = new EditorInventory(admin, kit.name(), this::closeFired);
         for (int slot = 0; slot < KitDefinition.SLOTS; slot++) {
             inventory.setInventorySlotContents(
                 slot,
@@ -70,6 +70,17 @@ final class KitChests implements KitEditors {
                 open.keySet()
                     .iterator()
                     .next());
+        }
+    }
+
+    /**
+     * Закрытие пришло от самой игры. Ванильный {@code displayGUIChest} закрывает прежний контейнер уже
+     * после того, как новый редактор лёг в карту, поэтому опоздавший вызов обязан назвать себя: иначе он
+     * выбросит чужой редактор и правки в нём сохранять станет некуда.
+     */
+    private void closeFired(EditorInventory inventory) {
+        if (open.get(inventory.owner) == inventory) {
+            close(inventory.owner);
         }
     }
 
@@ -135,20 +146,27 @@ final class KitChests implements KitEditors {
         }
     }
 
+    private interface Closing {
+
+        void fired(EditorInventory inventory);
+    }
+
     private static final class EditorInventory extends InventoryBasic {
 
+        private final UUID owner;
         private final String title;
-        private final Runnable onClose;
+        private final Closing onClose;
 
-        EditorInventory(String title, Runnable onClose) {
+        EditorInventory(UUID owner, String title, Closing onClose) {
             super(title, true, SLOTS);
+            this.owner = owner;
             this.title = title;
             this.onClose = onClose;
         }
 
         @Override
         public void closeInventory() {
-            onClose.run();
+            onClose.fired(this);
         }
     }
 }
