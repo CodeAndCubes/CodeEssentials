@@ -225,7 +225,7 @@ public final class KitServiceImpl implements KitService {
         PlayerRecord held, String actor, Claim refused) {
         PlayerRecord next = granted ? held.withKitBuffer(key, report.pending())
             .withKitClaim(key) : held.withKitBuffer(key, report.pending());
-        if (!commit(next, player, key, kit).successful()) {
+        if (!commit(next, player, key, kit, granted).successful()) {
             return Claim.unknown();
         }
         if (shared.get()
@@ -259,7 +259,7 @@ public final class KitServiceImpl implements KitService {
         }
         PlayerRecord next = held.withKitBuffer(key, pending)
             .withKitClaim(key);
-        if (!commit(next, player, key, kit).successful()) {
+        if (!commit(next, player, key, kit, true).successful()) {
             return Claim.unknown();
         }
         int buffered = count(pending) - count(debt);
@@ -276,10 +276,10 @@ public final class KitServiceImpl implements KitService {
         return Claim.granted(Claim.Outcome.STASHED, 0, buffered, count(pending));
     }
 
-    private StoreResult commit(PlayerRecord next, UUID player, String key, KitDefinition kit) {
+    private StoreResult commit(PlayerRecord next, UUID player, String key, KitDefinition kit, boolean granted) {
         ChangeBatch.Builder batch = ChangeBatch.builder(SingleWriter.AUTHOR)
             .upsert(next);
-        if (kit.cooldownSeconds() > 0) {
+        if (granted && kit.cooldownSeconds() > 0) {
             batch.setCooldown(player, cooldownKey(key), clock.getAsLong() + kit.cooldownSeconds() * MILLIS_PER_SECOND);
         }
         return writer.commit(

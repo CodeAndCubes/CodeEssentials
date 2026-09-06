@@ -298,6 +298,36 @@ class KitServiceImplTest {
     }
 
     @Test
+    void theDebtDoesNotPushTheCooldownFurtherAway(@TempDir Path root) {
+        Writer writer = new Writer();
+        writer.held = EssentialsState.empty()
+            .withPlayer(
+                PlayerRecord.empty(STEVE, "Steve")
+                    .withKitBuffer("starter", Arrays.asList(KitItem.of("minecraft:apple", 5))))
+            .withCooldown(STEVE, "kit.starter", clock.get() + 60_000L);
+        KitService kits = kitService(
+            root,
+            writer,
+            new ServiceTestStubs.Hands(Optional.of(slots())),
+            new Ticks(),
+            KitDefinition.named("starter")
+                .cooldown(60)
+                .slot(0, BREAD)
+                .build());
+        clock.addAndGet(30_000L);
+
+        kits.claim(STEVE, "starter", "Steve");
+
+        assertTrue(
+            writer.batches.stream()
+                .flatMap(
+                    batch -> batch.changes()
+                        .stream())
+                .noneMatch(change -> change.kind() == ChangeBatch.Kind.SET_COOLDOWN),
+            "отказ по паузе не переставляет саму паузу");
+    }
+
+    @Test
     void aTakenOneTimeKitAnswersTakenButTheDebtArrives(@TempDir Path root) {
         Writer writer = new Writer();
         writer.held = EssentialsState.empty()
