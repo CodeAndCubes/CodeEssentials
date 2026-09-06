@@ -693,8 +693,12 @@ public final class EssentialsCommands {
             .orElseGet(
                 () -> KitDefinition.named(name)
                     .build());
-        if (!editors.edit(self, kit)) {
+        KitEditors.Opening opening = editors.edit(self, kit);
+        if (opening == KitEditors.Opening.OFFLINE) {
             context.replyError(EssentialsMessages.ERROR_SENDER_NOT_PLAYER);
+            return;
+        }
+        if (opening == KitEditors.Opening.UNSHOWABLE) {
             return;
         }
         context.reply(EssentialsMessages.KIT_EDITOR, name);

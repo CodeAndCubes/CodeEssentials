@@ -495,14 +495,18 @@ final class CommandTestStubs {
         final List<UUID> captured = new ArrayList<>();
         KitItem[] worn;
         boolean online = true;
+        boolean showable = true;
 
         @Override
-        public boolean edit(UUID admin, KitDefinition kit) {
+        public Opening edit(UUID admin, KitDefinition kit) {
             if (!online) {
-                return false;
+                return Opening.OFFLINE;
+            }
+            if (!showable) {
+                return Opening.UNSHOWABLE;
             }
             opened.add(admin);
-            return true;
+            return Opening.OPENED;
         }
 
         @Override

@@ -1498,6 +1498,18 @@ class EssentialsCommandsTest {
                 .is(EssentialsMessages.ERROR_SENDER_NOT_PLAYER));
     }
 
+    @Test
+    void aKitTheChestCannotShowLeavesTheAnswerToTheEditor() {
+        kits.put("starter", false, 0);
+        subjects.nodes.add(Nodes.KIT_ADMIN);
+        editors.showable = false;
+        TestCommandContext context = new TestCommandContext().set("name", "starter");
+
+        execute(child(root(CommandRoots.KIT), "edit"), context);
+
+        assertTrue(context.quiet(), "общая строка не ложится поверх точной: слот и предмет знает редактор");
+    }
+
     private CommandNode root(String name) {
         for (CommandNode node : commands.allRoots()) {
             if (node.name()

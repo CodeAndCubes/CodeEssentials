@@ -59,6 +59,8 @@ public final class EssentialsMessages {
     public static final String ERROR_KIT_TAKEN = "codeessentials.error.kit_taken";
     public static final String ERROR_KIT_COOLDOWN = "codeessentials.error.kit_cooldown";
     public static final String ERROR_KIT_EMPTY = "codeessentials.error.kit_empty";
+    public static final String ERROR_KIT_UNSHOWN_ITEM = "codeessentials.error.kit_unshown_item";
+    public static final String ERROR_KIT_BIG_STACK = "codeessentials.error.kit_big_stack";
     public static final String ERROR_HOME_LIMIT = "codeessentials.error.home_limit";
     public static final String ERROR_NOT_FOUND = "codeessentials.error.not_found";
     public static final String ERROR_ALREADY_EXISTS = "codeessentials.error.already_exists";
@@ -102,6 +104,9 @@ public final class EssentialsMessages {
     public static final String KIT_SAVED = "codeessentials.message.kit_saved";
     public static final String KIT_DELETED = "codeessentials.message.kit_deleted";
     public static final String KIT_EDITOR = "codeessentials.message.kit_editor";
+    public static final String KIT_EDITOR_BACK = "codeessentials.message.kit_editor_back";
+    public static final String KIT_EDITOR_TAKEN = "codeessentials.message.kit_editor_taken";
+    public static final String KIT_EDITOR_MISSING = "codeessentials.message.kit_editor_missing";
     public static final String WARMUP = "codeessentials.message.warmup";
     public static final String CORRECTED = "codeessentials.message.corrected";
     public static final String MOVED = "codeessentials.message.moved";

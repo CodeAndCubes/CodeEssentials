@@ -81,8 +81,15 @@ final class KitInventories implements KitHands {
         return new KitRules();
     }
 
+    /**
+     * Перевести стек в запись кита.
+     *
+     * @return пустая ссылка, когда записать нечего: реестр не знает предмет, или его имя, урон и число
+     *         не проходят границы записи. Чужой мод волен назвать предмет как угодно, и падение на
+     *         закрытии редактора стоило бы админу всей правки
+     */
     static KitItem item(ItemStack stack) {
-        if (stack == null || stack.getItem() == null) {
+        if (stack == null || stack.getItem() == null || stack.stackSize < KitItem.MIN_COUNT) {
             return null;
         }
         String id = Item.itemRegistry.getNameForObject(stack.getItem());
@@ -92,7 +99,11 @@ final class KitInventories implements KitHands {
         String tags = stack.getTagCompound() == null ? ""
             : stack.getTagCompound()
                 .toString();
-        return KitItem.of(id, stack.stackSize, stack.getItemDamage(), tags);
+        try {
+            return KitItem.of(id, stack.stackSize, stack.getItemDamage(), tags);
+        } catch (IllegalArgumentException outOfBounds) {
+            return null;
+        }
     }
 
     static ItemStack stackOf(KitItem item) {
