@@ -6,7 +6,7 @@
 		"description": "Дома, варпы, спавн, возврат и tpa-запросы: один движок переносов с тёплой задержкой, поиском безопасной точки и кулдаунами.",
 		"version": "${modVersion}",
 		"mcversion": "${minecraftVersion}",
-		"url": "",
+		"url": "https://github.com/CodeAndCubes/CodeEssentials",
 		"updateUrl": "",
 		"authorList": ["MrLeonardos"],
 		"credits": "",
