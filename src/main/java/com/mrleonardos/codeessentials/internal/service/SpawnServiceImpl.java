@@ -20,6 +20,8 @@ public final class SpawnServiceImpl implements SpawnService {
     private final ConfigFile<SpawnFile> file;
     private final Logger log;
 
+    private volatile SpawnTable decoded;
+
     public SpawnServiceImpl(Supplier<SharedSettings> shared, ConfigFile<SpawnFile> file, Logger log) {
         this.shared = shared;
         this.file = file;
@@ -31,6 +33,21 @@ public final class SpawnServiceImpl implements SpawnService {
         if (!file.loaded()) {
             return SpawnTable.empty();
         }
+        SpawnTable held = decoded;
+        if (held != null) {
+            return held;
+        }
+        held = decodeTable();
+        decoded = held;
+        return held;
+    }
+
+    /** Забыть разобранный спавн: файл перечитан, битая запись называется один раз на загрузку. */
+    public void reread() {
+        decoded = null;
+    }
+
+    private SpawnTable decodeTable() {
         SpawnFile stored = file.get();
         Map<Integer, Point> byDimension = new TreeMap<>();
         for (Map.Entry<String, String> entry : stored.dimensions.entrySet()) {
@@ -72,6 +89,7 @@ public final class SpawnServiceImpl implements SpawnService {
             stored.global = previous;
             return written;
         }
+        decoded = null;
         if (shared.get()
             .logChanges()) {
             log.info("{} set the global spawn at {}", actor, point.print());
@@ -100,6 +118,7 @@ public final class SpawnServiceImpl implements SpawnService {
             }
             return written;
         }
+        decoded = null;
         if (shared.get()
             .logChanges()) {
             log.info("{} set the spawn of dimension {} at {}", actor, key, point.print());

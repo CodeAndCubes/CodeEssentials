@@ -45,6 +45,7 @@ codeessentials.error.back_death_denied=Возврат к месту смерти
 codeessentials.error.back_crossworld_denied=Возврат в другое измерение вам не открыт
 codeessentials.error.bad_arguments=Не разобрал аргументы: %s
 codeessentials.error.rtp_off=Случайный перенос на этом сервере выключен
+codeessentials.error.state_off=Состояние игроков выключено: провайдер хранилища из конфига не зарегистрирован
 codeessentials.error.rtp_world=В этом мире случайный перенос не работает
 codeessentials.error.rtp_not_found=За %s попыток места не нашлось, попробуйте ещё раз
 codeessentials.error.home_limit=Домов уже %s, это ваш предел

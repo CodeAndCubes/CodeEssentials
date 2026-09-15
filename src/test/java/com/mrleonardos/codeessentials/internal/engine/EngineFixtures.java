@@ -236,6 +236,11 @@ public final class EngineFixtures {
 
         @Override
         public void flush() {}
+
+        @Override
+        public boolean working() {
+            return true;
+        }
     }
 
     public static final class FakeMover implements Mover {

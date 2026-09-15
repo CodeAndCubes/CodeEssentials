@@ -126,11 +126,11 @@ public final class TeleportRequest {
          *                                  заводского потолка
          */
         public Builder warmupSeconds(int value) {
-            if (value < WARMUP_FROM_SETTINGS || value > EssentialsLimits.DEFAULT_WARMUP_SECONDS) {
+            if (value < WARMUP_FROM_SETTINGS || value > EssentialsLimits.WARMUP_SECONDS_CEILING) {
                 throw new IllegalArgumentException(
                     "Warmup must be " + WARMUP_FROM_SETTINGS
                         + " or fit 0.."
-                        + EssentialsLimits.DEFAULT_WARMUP_SECONDS
+                        + EssentialsLimits.WARMUP_SECONDS_CEILING
                         + ": "
                         + value);
             }

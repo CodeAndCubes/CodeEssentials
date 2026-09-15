@@ -1,8 +1,10 @@
 package com.mrleonardos.codeessentials.internal.kits;
 
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 
 import com.mrleonardos.codeessentials.api.model.KitDefinition;
 import com.mrleonardos.codeessentials.api.model.KitItem;
@@ -10,12 +12,14 @@ import com.mrleonardos.codeessentials.api.model.KitItem;
 public final class KitDelivery {
 
     private final KitItem[] slots;
+    private final Set<Integer> untouched;
     private final List<KitItem> pending;
     private final int delivered;
     private final int buffered;
 
-    private KitDelivery(KitItem[] slots, List<KitItem> pending, int delivered, int buffered) {
+    private KitDelivery(KitItem[] slots, Set<Integer> untouched, List<KitItem> pending, int delivered, int buffered) {
         this.slots = slots;
+        this.untouched = untouched;
         this.pending = pending;
         this.delivered = delivered;
         this.buffered = buffered;
@@ -27,24 +31,35 @@ public final class KitDelivery {
      * <p>
      * Сначала предметы кита по номерам слотов, затем долг в порядке хранения. Каждый предмет идёт по
      * этапам: свой слот, слияние со стопками, первый свободный слот инвентаря, остаток в буфер.
-     * Предмет из ячейки брони этапы после первого минует: не наделся, значит ждёт в буфере.
+     * Предмет из ячейки брони этапы после первого минует: не наделся, значит ждёт в буфере. Слот с
+     * невыразимым предметом игрока считается занятым: предмет кита из него идёт по этапам
+     * переполнения.
      *
      * @param kit      что выдаётся
      * @param debt     ждущие предметы этого кита из прошлого раза, допускается пустой список
-     * @param worn     слоты игрока, пустые места пустыми ссылками
+     * @param worn     слепок слотов игрока
      * @param stacking правила стопок и надеваемости
      */
-    public static KitDelivery deliver(KitDefinition kit, List<KitItem> debt, KitItem[] worn, KitStacking stacking) {
+    public static KitDelivery deliver(KitDefinition kit, List<KitItem> debt, WornSlots worn, KitStacking stacking) {
         Objects.requireNonNull(kit, "kit");
         Objects.requireNonNull(debt, "debt");
         Objects.requireNonNull(worn, "worn");
         Objects.requireNonNull(stacking, "stacking");
-        if (worn.length != KitDefinition.SLOTS) {
-            throw new IllegalArgumentException("Player slots must be " + KitDefinition.SLOTS + ": " + worn.length);
+        if (worn.size() != KitDefinition.SLOTS) {
+            throw new IllegalArgumentException("Player slots must be " + KitDefinition.SLOTS + ": " + worn.size());
         }
         KitItem[] slots = new KitItem[KitDefinition.SLOTS];
+        boolean[] blocked = new boolean[KitDefinition.SLOTS];
         for (int slot = 0; slot < KitDefinition.SLOTS; slot++) {
-            slots[slot] = worn[slot] == null ? null : worn[slot].withCount(worn[slot].count());
+            KitItem held = worn.item(slot);
+            slots[slot] = held == null ? null : held.withCount(held.count());
+            blocked[slot] = worn.unrecorded(slot);
+        }
+        Set<Integer> untouched = new LinkedHashSet<>();
+        for (int slot = 0; slot < KitDefinition.SLOTS; slot++) {
+            if (blocked[slot]) {
+                untouched.add(Integer.valueOf(slot));
+            }
         }
         List<KitItem> pending = new ArrayList<>();
         int arrived = 0;
@@ -55,14 +70,14 @@ public final class KitDelivery {
             if (item == null) {
                 continue;
             }
-            int moved = place(item, slot, slots, stacking, pending);
+            int moved = place(item, slot, slots, blocked, stacking, pending);
             arrived += moved;
             stashed += item.count() - moved;
         }
         for (KitItem item : debt) {
-            arrived += place(item, -1, slots, stacking, pending);
+            arrived += place(item, -1, slots, blocked, stacking, pending);
         }
-        return new KitDelivery(slots, pending, arrived, stashed);
+        return new KitDelivery(slots, untouched, pending, arrived, stashed);
     }
 
     /**
@@ -85,6 +100,11 @@ public final class KitDelivery {
         return slots;
     }
 
+    /** Слоты, куда писать нельзя: там лежит предмет, который запись кита не выражает. */
+    public Set<Integer> untouched() {
+        return untouched;
+    }
+
     /** Что осталось ждать в буфере, по порядку. */
     public List<KitItem> pending() {
         return pending;
@@ -100,10 +120,11 @@ public final class KitDelivery {
         return buffered;
     }
 
-    private static int place(KitItem item, int ownSlot, KitItem[] slots, KitStacking stacking, List<KitItem> pending) {
+    private static int place(KitItem item, int ownSlot, KitItem[] slots, boolean[] blocked, KitStacking stacking,
+        List<KitItem> pending) {
         int remaining = item.count();
         if (ownSlot >= KitDefinition.INVENTORY_SLOTS) {
-            if (remaining > 0 && slots[ownSlot] == null && stacking.accepts(ownSlot, item)) {
+            if (remaining > 0 && slots[ownSlot] == null && !blocked[ownSlot] && stacking.accepts(ownSlot, item)) {
                 remaining -= put(item, Math.min(remaining, stacking.limit(item)), slots, ownSlot);
             }
             if (remaining > 0) {
@@ -111,7 +132,10 @@ public final class KitDelivery {
             }
             return item.count() - remaining;
         }
-        if (remaining > 0 && ownSlot >= 0 && slots[ownSlot] == null && stacking.accepts(ownSlot, item)) {
+        if (remaining > 0 && ownSlot >= 0
+            && slots[ownSlot] == null
+            && !blocked[ownSlot]
+            && stacking.accepts(ownSlot, item)) {
             remaining -= put(item, Math.min(remaining, stacking.limit(item)), slots, ownSlot);
         }
         for (int slot = 0; remaining > 0 && slot < KitDefinition.INVENTORY_SLOTS; slot++) {
@@ -128,7 +152,7 @@ public final class KitDelivery {
             remaining -= take;
         }
         for (int slot = 0; remaining > 0 && slot < KitDefinition.INVENTORY_SLOTS; slot++) {
-            if (slots[slot] != null || !stacking.accepts(slot, item)) {
+            if (slots[slot] != null || blocked[slot] || !stacking.accepts(slot, item)) {
                 continue;
             }
             remaining -= put(item, Math.min(remaining, stacking.limit(item)), slots, slot);

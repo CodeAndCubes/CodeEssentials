@@ -252,6 +252,7 @@ class KitServiceImplTest {
             KitDefinition.named(
                 ALEX.toString()
                     .substring(0, 0) + "starter")
+                .once()
                 .slot(0, BREAD)
                 .build());
 
@@ -494,6 +495,62 @@ class KitServiceImplTest {
     }
 
     @Test
+    void theBypassNodeDoesNotSpendTheCooldown(@TempDir Path root) {
+        Writer writer = new Writer();
+        KitService kits = new KitServiceImpl(
+            SharedSettings::defaults,
+            file(root),
+            new ServiceTestStubs.Hands(Optional.of(slots())),
+            events(),
+            rights("codeessentials.bypass.cooldown"),
+            writer,
+            new Ticks(),
+            clock::get,
+            TEST_LOG);
+        kits.define(
+            KitDefinition.named("starter")
+                .cooldown(60)
+                .slot(0, BREAD)
+                .build(),
+            "Steve");
+
+        KitService.Claim answer = kits.claim(STEVE, "starter", "Steve");
+
+        assertEquals(KitService.Claim.Outcome.DELIVERED, answer.outcome());
+        assertTrue(
+            writer.batches.stream()
+                .flatMap(
+                    batch -> batch.changes()
+                        .stream())
+                .noneMatch(change -> change.kind() == ChangeBatch.Kind.SET_COOLDOWN),
+            "метка кулдауна при обходе не списывается");
+    }
+
+    @Test
+    void aRepeatableKitLeavesNoOneTimeMark(@TempDir Path root) {
+        Writer writer = new Writer();
+        KitService kits = kitService(
+            root,
+            writer,
+            new ServiceTestStubs.Hands(Optional.of(slots())),
+            new Ticks(),
+            KitDefinition.named("starter")
+                .cooldown(30)
+                .slot(0, BREAD)
+                .build());
+
+        assertEquals(
+            KitService.Claim.Outcome.DELIVERED,
+            kits.claim(STEVE, "starter", "Steve")
+                .outcome());
+
+        assertFalse(
+            writer.held.player(STEVE)
+                .hasKitClaim("starter"),
+            "отметка одноразовости пишется только китам с once");
+    }
+
+    @Test
     void aClaimTheMainThreadNeverTookAnswersUnknown(@TempDir Path root) {
         KitService kits = new KitServiceImpl(
             SharedSettings::defaults,
@@ -628,6 +685,11 @@ class KitServiceImplTest {
 
         @Override
         public void flush() {}
+
+        @Override
+        public boolean working() {
+            return true;
+        }
     }
 
     private static final class KitRegistry implements KitEvents {

@@ -5,6 +5,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.UUID;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -15,15 +17,18 @@ import com.mrleonardos.codeessentials.internal.command.TeleportRequests;
 import com.mrleonardos.codeessentials.internal.engine.Cooldowns;
 import com.mrleonardos.codeessentials.internal.engine.EngineRules;
 import com.mrleonardos.codeessentials.internal.engine.RequestBoard;
+import com.mrleonardos.codeessentials.internal.store.SingleWriter;
 
 class RequestBridgeTest {
 
+    private static final Logger LOG = LogManager.getLogger(RequestBridgeTest.class);
     private static final UUID STEVE = UUID.fromString("00000000-0000-0000-0000-000000000021");
     private static final UUID ALEX = UUID.fromString("00000000-0000-0000-0000-000000000022");
     private static final UUID NOTCH = UUID.fromString("00000000-0000-0000-0000-000000000023");
 
     private final PlatformStubs.Worlds worlds = new PlatformStubs.Worlds();
     private final PlatformStubs.Teleports teleports = new PlatformStubs.Teleports();
+    private final SingleWriter writer = new PlatformStubs.Memory();
     private long now = 1_000L;
 
     private Cooldowns cooldowns;
@@ -226,7 +231,15 @@ class RequestBridgeTest {
 
     private void build(EngineRules rules) {
         cooldowns = new Cooldowns(new PlatformStubs.Memory(), new PlatformStubs.Rights(), () -> rules, () -> now);
-        board = new RequestBoard(teleports, worlds, cooldowns, () -> rules, new PlatformStubs.Now(), () -> now);
+        board = new RequestBoard(
+            teleports,
+            worlds,
+            cooldowns,
+            () -> rules,
+            new PlatformStubs.Now(),
+            () -> now,
+            writer,
+            LOG);
         bridge = new RequestBridge(board);
     }
 

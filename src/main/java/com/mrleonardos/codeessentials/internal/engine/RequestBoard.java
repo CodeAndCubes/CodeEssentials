@@ -4,24 +4,29 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.LongSupplier;
 import java.util.function.Supplier;
 
+import org.apache.logging.log4j.Logger;
+
 import com.mrleonardos.codecore.api.util.Scheduler;
+import com.mrleonardos.codeessentials.api.model.PlayerRecord;
 import com.mrleonardos.codeessentials.api.model.Point;
+import com.mrleonardos.codeessentials.api.store.ChangeBatch;
+import com.mrleonardos.codeessentials.api.store.StoreResult;
 import com.mrleonardos.codeessentials.api.teleport.CancelReason;
 import com.mrleonardos.codeessentials.api.teleport.TeleportCause;
 import com.mrleonardos.codeessentials.api.teleport.TeleportJob;
 import com.mrleonardos.codeessentials.api.teleport.TeleportRequest;
 import com.mrleonardos.codeessentials.api.teleport.TeleportService;
+import com.mrleonardos.codeessentials.internal.store.EssentialsState;
+import com.mrleonardos.codeessentials.internal.store.SingleWriter;
 
 public final class RequestBoard {
 
@@ -52,21 +57,24 @@ public final class RequestBoard {
     private final Supplier<EngineRules> rules;
     private final Scheduler scheduler;
     private final LongSupplier clock;
+    private final SingleWriter writer;
+    private final Logger log;
 
     private final Map<UUID, List<Ticket>> incoming = new LinkedHashMap<>();
-    private final Set<UUID> muted = new LinkedHashSet<>();
     private final AtomicLong ids = new AtomicLong();
 
     private volatile boolean running;
 
     public RequestBoard(TeleportService teleports, WorldAccess world, Cooldowns cooldowns, Supplier<EngineRules> rules,
-        Scheduler scheduler, LongSupplier clock) {
+        Scheduler scheduler, LongSupplier clock, SingleWriter writer, Logger log) {
         this.teleports = teleports;
         this.world = world;
         this.cooldowns = cooldowns;
         this.rules = rules;
         this.scheduler = scheduler;
         this.clock = clock;
+        this.writer = writer;
+        this.log = log;
     }
 
     public void start() {
@@ -77,7 +85,6 @@ public final class RequestBoard {
     public void stop() {
         running = false;
         incoming.clear();
-        muted.clear();
     }
 
     public Answer send(UUID from, String fromName, UUID to, String toName, Kind kind) {
@@ -87,7 +94,9 @@ public final class RequestBoard {
         if (from.equals(to)) {
             return Answer.plain(Outcome.SELF);
         }
-        if (muted.contains(to)) {
+        if (writer.state()
+            .player(to)
+            .requestsClosed()) {
             return Answer.plain(Outcome.BLOCKED);
         }
         long wait = cooldowns.remainingRequest(from);
@@ -165,17 +174,39 @@ public final class RequestBoard {
         return removed == null ? Answer.plain(Outcome.NONE) : Answer.of(Outcome.CANCELLED, removed);
     }
 
+    /**
+     * Переключить приём просьб и записать новое состояние в хранилище игрока: закрытая дверь
+     * переживает перезаход. Запись не вышла, состояние остаётся прежним.
+     */
     public boolean toggle(UUID player) {
-        if (muted.remove(player)) {
-            return true;
+        EssentialsState state = writer.state();
+        boolean closed = state.player(player)
+            .requestsClosed();
+        PlayerRecord next = state.player(player)
+            .withRequestsClosed(!closed);
+        StoreResult written = writer.commit(
+            state.withPlayer(next),
+            ChangeBatch.builder(SingleWriter.AUTHOR)
+                .upsert(next)
+                .build());
+        if (!written.successful()) {
+            log.warn(
+                "Request toggle of {} was not written down: {} {}",
+                player,
+                written.failure()
+                    .map(Enum::name)
+                    .orElse(""),
+                written.message()
+                    .orElse(""));
+            return !closed;
         }
-        muted.add(player);
-        incoming.remove(player);
-        return false;
+        if (!closed) {
+            incoming.remove(player);
+        }
+        return closed;
     }
 
     public void left(UUID player) {
-        muted.remove(player);
         incoming.remove(player);
         for (List<Ticket> pending : incoming.values()) {
             drop(pending, player);

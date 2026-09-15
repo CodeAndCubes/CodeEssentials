@@ -11,6 +11,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.LongSupplier;
 import java.util.function.Supplier;
 
 import org.apache.logging.log4j.Logger;
@@ -38,19 +39,21 @@ public final class HomeServiceImpl implements HomeService {
     private final PlayerStateWriter state;
     private final Supplier<HomeEvents> events;
     private final Scheduler scheduler;
+    private final LongSupplier clock;
     private final Logger log;
 
     private final Set<UUID> touched = new LinkedHashSet<>();
     private boolean flushScheduled;
 
     public HomeServiceImpl(Supplier<EssentialsSettings> settings, Supplier<SharedSettings> shared, PlayerMeta meta,
-        PlayerStateWriter state, Supplier<HomeEvents> events, Scheduler scheduler, Logger log) {
+        PlayerStateWriter state, Supplier<HomeEvents> events, Scheduler scheduler, LongSupplier clock, Logger log) {
         this.settings = settings;
         this.shared = shared;
         this.meta = meta;
         this.state = state;
         this.events = events;
         this.scheduler = scheduler;
+        this.clock = clock;
         this.log = log;
     }
 
@@ -128,7 +131,7 @@ public final class HomeServiceImpl implements HomeService {
             .size() >= limit) {
             return StoreResult.failure(StoreResult.Failure.LIMIT_REACHED, String.valueOf(limit));
         }
-        HomeRecord home = HomeRecord.of(key, point, System.currentTimeMillis());
+        HomeRecord home = HomeRecord.of(key, point, clock.getAsLong());
         String veto = vetoOf(player, home, overwrite);
         if (veto != null) {
             return StoreResult.failure(StoreResult.Failure.VETOED, veto);

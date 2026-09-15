@@ -142,6 +142,11 @@ final class PlatformStubs {
 
         @Override
         public void flush() {}
+
+        @Override
+        public boolean working() {
+            return true;
+        }
     }
 
     static final class Now implements Scheduler {

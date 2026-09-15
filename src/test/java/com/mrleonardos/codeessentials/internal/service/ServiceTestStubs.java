@@ -23,6 +23,7 @@ import com.mrleonardos.codeessentials.api.store.StoreResult;
 import com.mrleonardos.codeessentials.api.teleport.SafeSpotResult;
 import com.mrleonardos.codeessentials.internal.kits.KitHands;
 import com.mrleonardos.codeessentials.internal.kits.KitStacking;
+import com.mrleonardos.codeessentials.internal.kits.WornSlots;
 
 final class ServiceTestStubs {
 
@@ -169,22 +170,22 @@ final class ServiceTestStubs {
     /** Слоты игрока для доставки китов: worn задаёт тест, dress запоминает результат. */
     static final class Hands implements KitHands {
 
-        Optional<KitItem[]> worn = Optional.empty();
+        Optional<WornSlots> worn = Optional.empty();
         boolean dressable = true;
         boolean dressed;
         KitItem[] given;
 
         Hands(Optional<KitItem[]> worn) {
-            this.worn = worn;
+            this.worn = worn.map(WornSlots::of);
         }
 
         @Override
-        public Optional<KitItem[]> worn(UUID player) {
+        public Optional<WornSlots> worn(UUID player) {
             return worn;
         }
 
         @Override
-        public boolean dress(UUID player, KitItem[] slots) {
+        public boolean dress(UUID player, KitItem[] slots, Set<Integer> untouched) {
             if (!dressable) {
                 return false;
             }

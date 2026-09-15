@@ -34,6 +34,7 @@ import com.mrleonardos.codeessentials.api.teleport.TeleportCause;
 import com.mrleonardos.codeessentials.api.teleport.TeleportJob;
 import com.mrleonardos.codeessentials.api.teleport.TeleportRequest;
 import com.mrleonardos.codeessentials.api.teleport.TeleportService;
+import com.mrleonardos.codeessentials.internal.kits.WornSlots;
 
 final class CommandTestStubs {
 
@@ -493,7 +494,7 @@ final class CommandTestStubs {
 
         final List<UUID> opened = new ArrayList<>();
         final List<UUID> captured = new ArrayList<>();
-        KitItem[] worn;
+        WornSlots worn;
         boolean online = true;
         boolean showable = true;
 
@@ -510,7 +511,7 @@ final class CommandTestStubs {
         }
 
         @Override
-        public Optional<KitItem[]> capture(UUID admin) {
+        public Optional<WornSlots> capture(UUID admin) {
             captured.add(admin);
             return Optional.ofNullable(worn);
         }
@@ -535,11 +536,17 @@ final class CommandTestStubs {
 
         StoreResult answer = StoreResult.success("config, commands, warps, spawn");
         int calls;
+        boolean state = true;
 
         @Override
         public StoreResult reloadSettings() {
             calls++;
             return answer;
+        }
+
+        @Override
+        public boolean stateOn() {
+            return state;
         }
     }
 

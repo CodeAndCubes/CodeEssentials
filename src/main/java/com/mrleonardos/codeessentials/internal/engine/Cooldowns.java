@@ -45,7 +45,7 @@ public final class Cooldowns {
     }
 
     public StoreResult charge(UUID player, TeleportCause cause) {
-        if (!cause.chargesCooldown()) {
+        if (!cause.chargesCooldown() || !writer.working()) {
             return StoreResult.success();
         }
         return write(
@@ -56,6 +56,9 @@ public final class Cooldowns {
     }
 
     public StoreResult chargeRequest(UUID player) {
+        if (!writer.working()) {
+            return StoreResult.success();
+        }
         return write(
             player,
             PlayerDataStore.REQUEST_COOLDOWN_KEY,

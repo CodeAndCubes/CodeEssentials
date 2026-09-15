@@ -1,6 +1,7 @@
 package com.mrleonardos.codeessentials.internal.kits;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -38,25 +39,49 @@ public final class KitSettlement {
      * @param closed что осталось в редакторе при закрытии
      */
     public static KitSettlement between(List<KitItem> opened, List<KitItem> closed) {
+        return between(opened, closed, Collections.<KitItem>emptyList());
+    }
+
+    /**
+     * Сравнить картинку с тем, что осталось в редакторе, где часть лежит в запасных слотах.
+     *
+     * <p>
+     * Запасные слоты в запись кита не попадают, поэтому их содержимое всегда возвращается в рюкзак:
+     * и принесённое своё, и вынутое из картинки. Разница тем самым считается по сундуку целиком, а
+     * возврат не может оказаться меньше того, что физически лежит в запасных слотах.
+     *
+     * @param opened что редактор показал при открытии
+     * @param cells  что осталось в клетках картинки при закрытии
+     * @param spares что осталось в запасных слотах при закрытии
+     */
+    public static KitSettlement between(List<KitItem> opened, List<KitItem> cells, List<KitItem> spares) {
         Objects.requireNonNull(opened, "opened");
-        Objects.requireNonNull(closed, "closed");
+        Objects.requireNonNull(cells, "cells");
+        Objects.requireNonNull(spares, "spares");
         Map<KitItem, Integer> balance = new LinkedHashMap<>();
+        Map<KitItem, Integer> held = new LinkedHashMap<>();
         for (KitItem item : opened) {
             count(balance, item, -item.count());
         }
-        for (KitItem item : closed) {
+        for (KitItem item : cells) {
             count(balance, item, item.count());
+        }
+        for (KitItem item : spares) {
+            count(balance, item, item.count());
+            count(held, item, item.count());
         }
         List<KitItem> back = new ArrayList<>();
         List<KitItem> take = new ArrayList<>();
         for (Map.Entry<KitItem, Integer> entry : balance.entrySet()) {
+            KitItem kind = entry.getKey();
             int total = entry.getValue()
                 .intValue();
-            if (total > 0) {
-                split(back, entry.getKey(), total);
-            } else if (total < 0) {
-                split(take, entry.getKey(), -total);
+            if (total < 0) {
+                split(take, kind, -total);
             }
+            int spare = held.containsKey(kind) ? held.get(kind)
+                .intValue() : 0;
+            split(back, kind, Math.max(total, spare));
         }
         return new KitSettlement(back, take);
     }

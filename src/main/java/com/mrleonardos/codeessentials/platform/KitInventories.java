@@ -1,6 +1,7 @@
 package com.mrleonardos.codeessentials.platform;
 
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 import net.minecraft.entity.player.EntityPlayerMP;
@@ -18,6 +19,7 @@ import com.mrleonardos.codeessentials.api.model.KitDefinition;
 import com.mrleonardos.codeessentials.api.model.KitItem;
 import com.mrleonardos.codeessentials.internal.kits.KitHands;
 import com.mrleonardos.codeessentials.internal.kits.KitStacking;
+import com.mrleonardos.codeessentials.internal.kits.WornSlots;
 
 final class KitInventories implements KitHands {
 
@@ -28,28 +30,37 @@ final class KitInventories implements KitHands {
     }
 
     @Override
-    public Optional<KitItem[]> worn(UUID player) {
+    public Optional<WornSlots> worn(UUID player) {
         EntityPlayerMP online = Players.online(player);
         if (online == null) {
             return Optional.empty();
         }
         KitItem[] slots = new KitItem[KitDefinition.SLOTS];
+        boolean[] unrecorded = new boolean[KitDefinition.SLOTS];
         for (int slot = 0; slot < KitDefinition.INVENTORY_SLOTS; slot++) {
             slots[slot] = item(online.inventory.mainInventory[slot]);
+            unrecorded[slot] = unrecordable(online.inventory.mainInventory[slot]);
         }
         for (int slot = 0; slot < KitDefinition.ARMOR_SLOTS; slot++) {
-            slots[KitDefinition.INVENTORY_SLOTS + slot] = item(online.inventory.armorInventory[slot]);
+            int index = KitDefinition.INVENTORY_SLOTS + slot;
+            slots[index] = item(online.inventory.armorInventory[slot]);
+            unrecorded[index] = unrecordable(online.inventory.armorInventory[slot]);
         }
-        return Optional.of(slots);
+        return Optional.of(WornSlots.of(slots, unrecorded));
     }
 
     @Override
-    public boolean dress(UUID player, KitItem[] slots) {
+    public boolean dress(UUID player, KitItem[] slots, Set<Integer> untouched) {
         EntityPlayerMP online = Players.online(player);
         if (online == null) {
             return false;
         }
+        ItemStack[] main = new ItemStack[KitDefinition.INVENTORY_SLOTS];
+        ItemStack[] armor = new ItemStack[KitDefinition.ARMOR_SLOTS];
         for (int slot = 0; slot < KitDefinition.INVENTORY_SLOTS; slot++) {
+            if (untouched.contains(Integer.valueOf(slot))) {
+                continue;
+            }
             ItemStack stack = stackOf(slots[slot]);
             if (slots[slot] != null && stack == null) {
                 log.warn(
@@ -58,10 +69,13 @@ final class KitInventories implements KitHands {
                     player);
                 return false;
             }
-            online.inventory.mainInventory[slot] = stack;
+            main[slot] = stack;
         }
         for (int slot = 0; slot < KitDefinition.ARMOR_SLOTS; slot++) {
             int index = KitDefinition.INVENTORY_SLOTS + slot;
+            if (untouched.contains(Integer.valueOf(index))) {
+                continue;
+            }
             ItemStack stack = stackOf(slots[index]);
             if (slots[index] != null && stack == null) {
                 log.warn(
@@ -70,7 +84,18 @@ final class KitInventories implements KitHands {
                     player);
                 return false;
             }
-            online.inventory.armorInventory[slot] = stack;
+            armor[slot] = stack;
+        }
+        for (int slot = 0; slot < KitDefinition.INVENTORY_SLOTS; slot++) {
+            if (!untouched.contains(Integer.valueOf(slot))) {
+                online.inventory.mainInventory[slot] = main[slot];
+            }
+        }
+        for (int slot = 0; slot < KitDefinition.ARMOR_SLOTS; slot++) {
+            int index = KitDefinition.INVENTORY_SLOTS + slot;
+            if (!untouched.contains(Integer.valueOf(index))) {
+                online.inventory.armorInventory[slot] = armor[slot];
+            }
         }
         online.inventoryContainer.detectAndSendChanges();
         return true;
@@ -89,7 +114,7 @@ final class KitInventories implements KitHands {
      *         закрытии редактора стоило бы админу всей правки
      */
     static KitItem item(ItemStack stack) {
-        if (stack == null || stack.getItem() == null || stack.stackSize < KitItem.MIN_COUNT) {
+        if (!present(stack)) {
             return null;
         }
         String id = Item.itemRegistry.getNameForObject(stack.getItem());
@@ -104,6 +129,19 @@ final class KitInventories implements KitHands {
         } catch (IllegalArgumentException outOfBounds) {
             return null;
         }
+    }
+
+    /**
+     * Занят ли слот предметом, который запись кита выразить не может.
+     *
+     * @return ложь для пустого слота: пустота выражается пустой записью
+     */
+    static boolean unrecordable(ItemStack stack) {
+        return present(stack) && item(stack) == null;
+    }
+
+    private static boolean present(ItemStack stack) {
+        return stack != null && stack.getItem() != null && stack.stackSize >= KitItem.MIN_COUNT;
     }
 
     static ItemStack stackOf(KitItem item) {

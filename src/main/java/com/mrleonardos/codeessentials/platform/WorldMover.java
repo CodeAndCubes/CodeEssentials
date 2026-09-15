@@ -50,14 +50,24 @@ final class WorldMover implements Mover {
         } catch (RuntimeException failure) {
             if (shift.started) {
                 log.error(
-                    "Teleport {} broke after the player had already been shifted, the landing stands: {}",
-                    job,
+                    "Teleport {} of {} for {} broke after the player had already been shifted, the landing stands: {}",
+                    Long.valueOf(job.id()),
+                    player,
+                    job.cause()
+                        .key(),
                     failure.toString(),
                     failure);
                 report.done(landing);
                 return;
             }
-            log.error("Teleport {} broke on the way and the slot is free again: {}", job, failure.toString(), failure);
+            log.error(
+                "Teleport {} of {} for {} broke on the way and the slot is free again: {}",
+                Long.valueOf(job.id()),
+                player,
+                job.cause()
+                    .key(),
+                failure.toString(),
+                failure);
             report.failed(CancelReason.TIMEOUT);
             return;
         }

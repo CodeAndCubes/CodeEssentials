@@ -18,6 +18,7 @@ import com.mrleonardos.codeessentials.api.teleport.TeleportJob;
 import com.mrleonardos.codeessentials.internal.EssentialsSettings;
 import com.mrleonardos.codeessentials.internal.service.BackServiceImpl;
 import com.mrleonardos.codeessentials.internal.service.StateWriter;
+import com.mrleonardos.codeessentials.internal.store.SingleWriter;
 
 class RequestBoardTest {
 
@@ -36,6 +37,7 @@ class RequestBoardTest {
     private Cooldowns cooldowns;
     private TeleportEngine engine;
     private RequestBoard board;
+    private SingleWriter writer;
 
     @BeforeEach
     void setUp() {
@@ -237,6 +239,38 @@ class RequestBoardTest {
     }
 
     @Test
+    void theClosedDoorSurvivesLeaving() {
+        board.toggle(EngineFixtures.ALEX);
+
+        board.left(EngineFixtures.ALEX);
+
+        assertTrue(
+            writer.state()
+                .player(EngineFixtures.ALEX)
+                .requestsClosed(),
+            "закрытая дверь записана в состоянии игрока");
+        assertEquals(
+            RequestBoard.Outcome.BLOCKED,
+            ask(RequestBoard.Kind.TO_TARGET).outcome(),
+            "уход с сервера не открывает дверь сам собой");
+
+        RequestBoard restarted = new RequestBoard(
+            engine,
+            worlds,
+            cooldowns,
+            () -> rules(2, 60, 0),
+            scheduler,
+            clock::get,
+            writer,
+            LOG);
+        assertEquals(
+            RequestBoard.Outcome.BLOCKED,
+            restarted.send(EngineFixtures.STEVE, "Steve", EngineFixtures.ALEX, "Alex", RequestBoard.Kind.TO_TARGET)
+                .outcome(),
+            "перезаход не открывает дверь: состояние прочитано из хранилища");
+    }
+
+    @Test
     void requestRateHoldsBackTheSpammer() {
         build(rules(8, 60, 10));
 
@@ -376,6 +410,7 @@ class RequestBoardTest {
             scheduler,
             clock::get,
             LOG);
-        board = new RequestBoard(engine, worlds, cooldowns, () -> rules, scheduler, clock::get);
+        writer = EngineFixtures.writer(clock::get);
+        board = new RequestBoard(engine, worlds, cooldowns, () -> rules, scheduler, clock::get, writer, LOG);
     }
 }

@@ -13,6 +13,7 @@ import com.mrleonardos.codecore.api.config.ConfigScope;
 import com.mrleonardos.codecore.api.config.ConfigSpec;
 import com.mrleonardos.codeessentials.api.EssentialsLimits;
 import com.mrleonardos.codeessentials.api.teleport.SafeSpotLimits;
+import com.mrleonardos.codeessentials.internal.engine.EngineRules;
 import com.mrleonardos.codeessentials.internal.engine.RandomRules;
 
 @Comment({ "Редкие настройки перемещений CodeEssentials.",
@@ -29,9 +30,6 @@ public final class EssentialsSettings {
 
     public static final String DEFAULT_POLICY = "builtin";
 
-    public static final double DEFAULT_WARMUP_MOVE_RADIUS = 2.0D;
-    public static final int DEFAULT_REQUEST_TIMEOUT_SECONDS = 60;
-    public static final int DEFAULT_REQUEST_RATE_SECONDS = 10;
     public static final int DEFAULT_BACK_DEPTH = 1;
 
     public static final String BACK_NONE = "NONE";
@@ -254,7 +252,7 @@ public final class EssentialsSettings {
 
         @Comment({ "На сколько блоков игрок вправе сдвинуться за время прогрева.",
             "По высоте разрешена половина этого числа." })
-        public double warmupMoveRadius = DEFAULT_WARMUP_MOVE_RADIUS;
+        public double warmupMoveRadius = EngineRules.DEFAULT_MOVE_RADIUS;
 
         @Comment("Снимать ли перенос, если игроку успели нанести урон.")
         public boolean warmupCancelOnDamage = true;
@@ -268,7 +266,7 @@ public final class EssentialsSettings {
     public static final class SafeSpot {
 
         @Comment({ "Имя политики поиска. Встроена \"builtin\", остальные приносят моды.",
-            "Незнакомое имя уводит на встроенную с записью в лог." })
+            "Незнакомое имя выключает поиск: перенос идёт по прямым координатам, в лог уходит строка." })
         public String policy = DEFAULT_POLICY;
 
         @Comment("На сколько блоков вверх поиск поднимается от цели.")
@@ -297,14 +295,14 @@ public final class EssentialsSettings {
     public static final class Requests {
 
         @Comment("Через сколько секунд неотвеченная просьба пропадает.")
-        public int timeoutSeconds = DEFAULT_REQUEST_TIMEOUT_SECONDS;
+        public int timeoutSeconds = EngineRules.DEFAULT_REQUEST_TIMEOUT_SECONDS;
 
         @Comment("Сколько просьб одновременно висит у одного игрока.")
         public int maxPending = EssentialsLimits.DEFAULT_PENDING_REQUESTS;
 
         @Comment({ "Пауза между двумя просьбами одного игрока в секундах.",
             "Списывается при отправке, а не при переносе. Ноль снимает." })
-        public int rateSeconds = DEFAULT_REQUEST_RATE_SECONDS;
+        public int rateSeconds = EngineRules.DEFAULT_REQUEST_RATE_SECONDS;
     }
 
     @Comment({ "Случайный перенос /rtp: кольцо вокруг центра, отсев биомов и число попыток.",
@@ -372,10 +370,10 @@ public final class EssentialsSettings {
         public int pendingRequests = EssentialsLimits.DEFAULT_PENDING_REQUESTS;
 
         @Comment("Срок жизни просьбы в секундах.")
-        public int requestTimeoutSeconds = EssentialsLimits.DEFAULT_REQUEST_TIMEOUT_SECONDS;
+        public int requestTimeoutSeconds = EssentialsLimits.REQUEST_TIMEOUT_SECONDS_CEILING;
 
         @Comment("Длина прогрева в секундах. Сама длина стоит в главном файле.")
-        public int warmupSeconds = EssentialsLimits.DEFAULT_WARMUP_SECONDS;
+        public int warmupSeconds = EssentialsLimits.WARMUP_SECONDS_CEILING;
 
         @Comment("Радиус поиска безопасной точки в блоках.")
         public int safeSpotRadius = EssentialsLimits.DEFAULT_SAFE_SPOT_RADIUS;

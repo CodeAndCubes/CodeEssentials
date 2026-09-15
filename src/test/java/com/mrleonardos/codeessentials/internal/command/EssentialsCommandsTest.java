@@ -40,6 +40,7 @@ import com.mrleonardos.codeessentials.api.teleport.TeleportRequest;
 import com.mrleonardos.codeessentials.internal.EssentialsSettings;
 import com.mrleonardos.codeessentials.internal.SharedFixtures;
 import com.mrleonardos.codeessentials.internal.SharedSettings;
+import com.mrleonardos.codeessentials.internal.kits.WornSlots;
 
 class EssentialsCommandsTest {
 
@@ -1392,8 +1393,79 @@ class EssentialsCommandsTest {
     }
 
     @Test
+    void theConsoleSeesTheKitListWithoutPersonalMarks() {
+        subjects.self = null;
+        kits.put("starter", true, 60);
+        kits.takers.add(STEVE);
+        kits.waits.put(STEVE, Long.valueOf(90_000L));
+        subjects.nodes.add(Nodes.kit("starter"));
+
+        TestCommandContext context = new TestCommandContext();
+        execute(root(CommandRoots.KITS), context);
+
+        assertTrue(
+            context.sent()
+                .get(0)
+                .is(EssentialsMessages.KITS));
+        assertTrue(
+            context.sent()
+                .get(1)
+                .is(EssentialsMessages.KITS_LINE_READY),
+            "неигровой отправитель видит список без отметок «взят» и без чужой паузы: " + context.sent());
+    }
+
+    @Test
+    void stateCommandsAnswerOffWhenTheStorageSeamIsBroken() {
+        maintenance.state = false;
+        kits.put("starter", false, 0);
+        subjects.nodes.add(Nodes.kit("starter"));
+        subjects.nodes.add(Nodes.KIT_ADMIN);
+
+        for (String name : Arrays.asList(
+            CommandRoots.HOME,
+            CommandRoots.SETHOME,
+            CommandRoots.DELHOME,
+            CommandRoots.HOMES,
+            CommandRoots.BACK,
+            CommandRoots.TPATOGGLE)) {
+            TestCommandContext context = new TestCommandContext().set("name", "base")
+                .set("player", "Alex");
+            execute(root(name), context);
+            assertTrue(context.last().error, name);
+            assertTrue(
+                context.last()
+                    .is(EssentialsMessages.ERROR_STATE_OFF),
+                name);
+        }
+
+        TestCommandContext claim = new TestCommandContext().set("name", "starter");
+        execute(root(CommandRoots.KIT), claim);
+        assertTrue(
+            claim.last()
+                .is(EssentialsMessages.ERROR_STATE_OFF));
+        assertTrue(kits.claims.isEmpty());
+
+        TestCommandContext give = new TestCommandContext().set("player", "Alex")
+            .set("kit", "starter");
+        execute(child(root(CommandRoots.KIT), "give"), give);
+        assertTrue(
+            give.last()
+                .is(EssentialsMessages.ERROR_STATE_OFF));
+
+        TestCommandContext cooldown = new TestCommandContext().set("player", "Alex");
+        execute(child(root(CommandRoots.ESSENTIALS), "cooldown"), cooldown);
+        assertTrue(
+            cooldown.last()
+                .is(EssentialsMessages.ERROR_STATE_OFF));
+
+        assertTrue(teleports.asked.isEmpty(), "перенос не начинался");
+        assertTrue(homes.owned.isEmpty(), "хранилище не тронуто");
+        assertNull(requests.askedTarget, "доска просьб не тронута");
+    }
+
+    @Test
     void anEmptySnapshotIsRefused() {
-        editors.worn = new KitItem[KitDefinition.SLOTS];
+        editors.worn = WornSlots.empty(KitDefinition.SLOTS);
 
         TestCommandContext context = new TestCommandContext().set("name", "starter");
         execute(child(root(CommandRoots.KIT), "save"), context);
@@ -1410,7 +1482,7 @@ class EssentialsCommandsTest {
         KitItem[] worn = new KitItem[KitDefinition.SLOTS];
         worn[0] = KitItem.of("minecraft:bread", 16);
         worn[39] = KitItem.of("minecraft:iron_helmet", 1);
-        editors.worn = worn;
+        editors.worn = WornSlots.of(worn);
 
         TestCommandContext context = new TestCommandContext().set("name", "Starter");
         execute(child(root(CommandRoots.KIT), "save"), context);

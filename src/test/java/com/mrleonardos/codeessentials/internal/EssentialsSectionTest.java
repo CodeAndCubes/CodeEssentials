@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Test;
 
 import com.mrleonardos.codecore.api.config.Comment;
 import com.mrleonardos.codecore.api.config.SectionSpec;
+import com.mrleonardos.codeessentials.internal.engine.EngineRules;
 
 class EssentialsSectionTest {
 
@@ -35,7 +36,7 @@ class EssentialsSectionTest {
 
         assertNotSame(first, second);
         assertEquals(EssentialsSection.DEFAULT_HOMES, second.homes);
-        assertEquals(EssentialsSection.DEFAULT_WARMUP_SECONDS, second.warmupSeconds);
+        assertEquals(EngineRules.DEFAULT_WARMUP_SECONDS, second.warmupSeconds);
     }
 
     @Test

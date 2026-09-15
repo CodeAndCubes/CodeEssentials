@@ -52,6 +52,7 @@ public final class EssentialsMessages {
     public static final String ERROR_BACK_CROSSWORLD_DENIED = "codeessentials.error.back_crossworld_denied";
     public static final String ERROR_BAD_ARGUMENTS = "codeessentials.error.bad_arguments";
     public static final String ERROR_RTP_OFF = "codeessentials.error.rtp_off";
+    public static final String ERROR_STATE_OFF = "codeessentials.error.state_off";
     public static final String ERROR_RTP_WORLD = "codeessentials.error.rtp_world";
     public static final String ERROR_RTP_NOT_FOUND = "codeessentials.error.rtp_not_found";
     public static final String ERROR_KIT_UNKNOWN = "codeessentials.error.kit_unknown";

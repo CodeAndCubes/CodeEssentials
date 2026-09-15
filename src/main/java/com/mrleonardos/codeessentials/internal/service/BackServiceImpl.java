@@ -82,7 +82,7 @@ public final class BackServiceImpl implements BackService {
         if (!wanted) {
             return StoreResult.failure(StoreResult.Failure.UNSUPPORTED, "back.on = " + current.backMode());
         }
-        PlayerRecord next = stateOf(player).pushBack(point, depthFor(player));
+        PlayerRecord next = stateOf(player).pushBack(point, depthFor(player), current.ceilings());
         return state.commit(
             next,
             ChangeBatch.builder(ACTOR)

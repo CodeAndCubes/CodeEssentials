@@ -99,6 +99,49 @@ class KitSettlementTest {
     }
 
     @Test
+    void anOwnItemInTheSpareSlotsComesBackAndIsNotWrittenIntoTheKit() {
+        KitSettlement settlement = KitSettlement.between(
+            Collections.<KitItem>emptyList(),
+            Collections.<KitItem>emptyList(),
+            Collections.singletonList(PICK));
+
+        assertEquals(Collections.singletonList(PICK), settlement.back());
+        assertTrue(
+            settlement.take()
+                .isEmpty());
+    }
+
+    @Test
+    void aKitItemMovedToASpareSlotComesBackAndIsNotTakenFromTheBackpack() {
+        KitSettlement settlement = KitSettlement.between(
+            Collections.singletonList(BREAD),
+            Collections.<KitItem>emptyList(),
+            Collections.singletonList(BREAD));
+
+        assertEquals(Collections.singletonList(BREAD), settlement.back(), "предмет вернулся админу");
+        assertTrue(
+            settlement.take()
+                .isEmpty(),
+            "предмет лежал в сундуке, из рюкзака ничего не вычитается");
+    }
+
+    @Test
+    void anOwnItemSharesTheKindWithTheKitOneInTheSameSpare() {
+        KitSettlement settlement = KitSettlement.between(
+            Collections.singletonList(KitItem.of("minecraft:bread", 16)),
+            Collections.singletonList(KitItem.of("minecraft:bread", 16)),
+            Collections.singletonList(KitItem.of("minecraft:bread", 5)));
+
+        assertEquals(
+            Collections.singletonList(KitItem.of("minecraft:bread", 5)),
+            settlement.back(),
+            "свои пять хлебов из запасного слота возвращаются, и только они");
+        assertTrue(
+            settlement.take()
+                .isEmpty());
+    }
+
+    @Test
     void aDifferenceLongerThanOneRecordIsCutIntoSeveral() {
         List<KitItem> opened = Arrays
             .asList(KitItem.of("minecraft:bread", KitItem.MAX_COUNT), KitItem.of("minecraft:bread", 100));

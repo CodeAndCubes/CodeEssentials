@@ -32,6 +32,9 @@ public final class StateWriter implements PlayerStateWriter {
     }
 
     public StoreResult remember(UUID player, String name) {
+        if (!writer.working()) {
+            return StoreResult.success();
+        }
         PlayerRecord held = player(player).orElse(null);
         if (held != null && name.equals(held.name())) {
             return StoreResult.success();

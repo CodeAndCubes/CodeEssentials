@@ -51,6 +51,7 @@ class HomeServiceImplTest {
             state,
             () -> events,
             ticks,
+            () -> 1_000L,
             LogManager.getLogger("codeessentials-test"));
     }
 
@@ -272,6 +273,7 @@ class HomeServiceImplTest {
             state,
             () -> events,
             handoff,
+            () -> 1_000L,
             LogManager.getLogger("codeessentials-test"));
 
         assertTrue(

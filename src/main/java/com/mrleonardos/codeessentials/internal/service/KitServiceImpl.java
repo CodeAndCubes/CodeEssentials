@@ -33,12 +33,14 @@ import com.mrleonardos.codeessentials.internal.command.Nodes;
 import com.mrleonardos.codeessentials.internal.engine.PlayerRights;
 import com.mrleonardos.codeessentials.internal.kits.KitDelivery;
 import com.mrleonardos.codeessentials.internal.kits.KitHands;
+import com.mrleonardos.codeessentials.internal.kits.WornSlots;
 import com.mrleonardos.codeessentials.internal.store.SingleWriter;
 
 public final class KitServiceImpl implements KitService {
 
     public static final String COOLDOWN_KEY_PREFIX = "kit.";
     public static final long MILLIS_PER_SECOND = 1000L;
+    public static final long AWAIT_MILLIS = 10_000L;
 
     private final Supplier<SharedSettings> shared;
     private final ConfigFile<KitsFile> file;
@@ -49,6 +51,8 @@ public final class KitServiceImpl implements KitService {
     private final Scheduler scheduler;
     private final LongSupplier clock;
     private final Logger log;
+
+    private volatile Map<String, KitDefinition> decoded;
 
     public KitServiceImpl(Supplier<SharedSettings> shared, ConfigFile<KitsFile> file, KitHands hands,
         Supplier<KitEvents> events, PlayerRights rights, SingleWriter writer, Scheduler scheduler, LongSupplier clock,
@@ -69,6 +73,20 @@ public final class KitServiceImpl implements KitService {
         if (!file.loaded()) {
             return Collections.emptyMap();
         }
+        Map<String, KitDefinition> held = decoded;
+        if (held == null) {
+            held = decodeAll();
+            decoded = held;
+        }
+        return held;
+    }
+
+    /** Забыть разобранные киты: файл перечитан, битые записи называют себя один раз на загрузку. */
+    public void reread() {
+        decoded = null;
+    }
+
+    private Map<String, KitDefinition> decodeAll() {
         Map<String, KitDefinition> decoded = new TreeMap<>();
         for (Map.Entry<String, KitsFile.Kit> entry : file.get().kits.entrySet()) {
             KitDefinition kit = decode(entry.getKey(), entry.getValue());
@@ -109,6 +127,7 @@ public final class KitServiceImpl implements KitService {
             log.warn("{} was not written, nothing changed", KitsFile.FILE_NAME, broken);
             return StoreResult.failure(StoreResult.Failure.PROVIDER_FAILED, String.valueOf(broken.getMessage()));
         }
+        decoded = null;
         if (shared.get()
             .logChanges()) {
             log.info(
@@ -145,6 +164,7 @@ public final class KitServiceImpl implements KitService {
             log.warn("{} was not written, nothing changed", KitsFile.FILE_NAME, broken);
             return StoreResult.failure(StoreResult.Failure.PROVIDER_FAILED, String.valueOf(broken.getMessage()));
         }
+        decoded = null;
         if (shared.get()
             .logChanges()) {
             log.info("{} deleted kit {}", actor, key);
@@ -183,6 +203,9 @@ public final class KitServiceImpl implements KitService {
 
     @Override
     public boolean taken(UUID player, String kitName) {
+        if (player == null) {
+            return false;
+        }
         return record(player).hasKitClaim(lower(kitName));
     }
 
@@ -206,11 +229,11 @@ public final class KitServiceImpl implements KitService {
         long wait = veto == null && !taken ? cooldownLeft(player, key, kit) : 0L;
         boolean granted = veto == null && !taken && wait == 0L;
         Claim refused = refusedOf(veto, taken, wait, count(debt));
-        Optional<KitItem[]> worn = hands.worn(player);
+        Optional<WornSlots> worn = hands.worn(player);
         if (worn.isPresent()) {
             KitDefinition granting = granted ? kit : emptyOf(key);
             KitDelivery report = KitDelivery.deliver(granting, debt, worn.get(), hands.stacking());
-            if (hands.dress(player, report.slots())) {
+            if (hands.dress(player, report.slots(), report.untouched())) {
                 return settled(player, key, kit, granted, report, held, actor, refused);
             }
             log.warn("Kit {} could not be dressed on {}, every item waits in the buffer", key, player);
@@ -224,7 +247,7 @@ public final class KitServiceImpl implements KitService {
     private Claim settled(UUID player, String key, KitDefinition kit, boolean granted, KitDelivery report,
         PlayerRecord held, String actor, Claim refused) {
         PlayerRecord next = granted ? held.withKitBuffer(key, report.pending())
-            .withKitClaim(key) : held.withKitBuffer(key, report.pending());
+            .withKitClaim(kit.once(), key) : held.withKitBuffer(key, report.pending());
         if (!commit(next, player, key, kit, granted).successful()) {
             return Claim.unknown();
         }
@@ -258,7 +281,7 @@ public final class KitServiceImpl implements KitService {
             KitDelivery.setAside(pending, item);
         }
         PlayerRecord next = held.withKitBuffer(key, pending)
-            .withKitClaim(key);
+            .withKitClaim(kit.once(), key);
         if (!commit(next, player, key, kit, true).successful()) {
             return Claim.unknown();
         }
@@ -279,7 +302,7 @@ public final class KitServiceImpl implements KitService {
     private StoreResult commit(PlayerRecord next, UUID player, String key, KitDefinition kit, boolean granted) {
         ChangeBatch.Builder batch = ChangeBatch.builder(SingleWriter.AUTHOR)
             .upsert(next);
-        if (granted && kit.cooldownSeconds() > 0) {
+        if (granted && kit.cooldownSeconds() > 0 && !rights.has(player, Nodes.BYPASS_COOLDOWN)) {
             batch.setCooldown(player, cooldownKey(key), clock.getAsLong() + kit.cooldownSeconds() * MILLIS_PER_SECOND);
         }
         return writer.commit(
@@ -361,7 +384,7 @@ public final class KitServiceImpl implements KitService {
             }
         });
         try {
-            if (done.await(HomeServiceImpl.AWAIT_MILLIS, TimeUnit.MILLISECONDS)) {
+            if (done.await(AWAIT_MILLIS, TimeUnit.MILLISECONDS)) {
                 Claim given = answer.get();
                 return given == null ? Claim.unknown() : given;
             }

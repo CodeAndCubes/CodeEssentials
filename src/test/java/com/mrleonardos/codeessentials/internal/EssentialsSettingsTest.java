@@ -20,11 +20,24 @@ import com.mrleonardos.codecore.api.config.ConfigSpec;
 import com.mrleonardos.codeessentials.TestConfigs;
 import com.mrleonardos.codeessentials.api.EssentialsLimits;
 import com.mrleonardos.codeessentials.api.teleport.SafeSpotLimits;
+import com.mrleonardos.codeessentials.internal.engine.EngineRules;
 import com.mrleonardos.codeessentials.internal.engine.RandomRules;
 
 class EssentialsSettingsTest {
 
     private static final Logger LOG = LogManager.getLogger("codeessentials-test");
+
+    @Test
+    void defaultsAndCeilingsComeFromOneSourceEach() {
+        EssentialsSettings fresh = new EssentialsSettings();
+
+        assertEquals(EngineRules.DEFAULT_WARMUP_SECONDS, new EssentialsSection().warmupSeconds);
+        assertEquals(EngineRules.DEFAULT_REQUEST_TIMEOUT_SECONDS, fresh.requests.timeoutSeconds);
+        assertEquals(EngineRules.DEFAULT_REQUEST_RATE_SECONDS, fresh.requests.rateSeconds);
+        assertEquals(EngineRules.DEFAULT_MOVE_RADIUS, fresh.teleport.warmupMoveRadius, 0.0D);
+        assertTrue(EngineRules.DEFAULT_WARMUP_SECONDS <= EssentialsLimits.WARMUP_SECONDS_CEILING);
+        assertTrue(EngineRules.DEFAULT_REQUEST_TIMEOUT_SECONDS <= EssentialsLimits.REQUEST_TIMEOUT_SECONDS_CEILING);
+    }
 
     @Test
     void theFreshFileCarriesTheValuesFromTheDesign() {

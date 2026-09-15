@@ -285,7 +285,15 @@ public final class TeleportEngine implements TeleportService {
         if (cause.chargesCooldown()) {
             StoreResult charged = cooldowns.charge(player, cause);
             if (!charged.successful()) {
-                log.warn("Cooldown {} of {} was not written down: {}", cause.key(), player, charged);
+                log.warn(
+                    "Cooldown {} of {} was not written down: {} {}",
+                    cause.key(),
+                    player,
+                    charged.failure()
+                        .map(Enum::name)
+                        .orElse(""),
+                    charged.message()
+                        .orElse(""));
             }
         }
         if (cause.recordsBack() && work.origin != null) {
@@ -356,7 +364,14 @@ public final class TeleportEngine implements TeleportService {
             .orElse(null) == StoreResult.Failure.UNSUPPORTED) {
             return;
         }
-        log.warn("Return point of {} was not written down: {}", player, written);
+        log.warn(
+            "Return point of {} was not written down: {} {}",
+            player,
+            written.failure()
+                .map(Enum::name)
+                .orElse(""),
+            written.message()
+                .orElse(""));
     }
 
     private void cancelWarming(UUID player, CancelReason reason) {
@@ -455,9 +470,15 @@ public final class TeleportEngine implements TeleportService {
             }
             if (decision == null || !decision.allowed()) {
                 log.debug(
-                    "Teleport {} was refused by a listener: {}",
-                    job,
-                    decision == null ? "no answer" : decision.toString());
+                    "Teleport {} of {} for {} in {} was refused by a listener: {}",
+                    Long.valueOf(job.id()),
+                    job.player(),
+                    job.cause()
+                        .key(),
+                    job.state(),
+                    decision == null ? "no answer"
+                        : decision.reason()
+                            .orElse("no reason"));
                 return false;
             }
         }

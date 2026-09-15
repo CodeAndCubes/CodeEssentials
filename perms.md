@@ -89,7 +89,7 @@ CodeCore, ноды выдаются её файлом; после установ
 |---|---|---|
 | `codeessentials.tpa` | `/tpa <ник>`, `/tpaccept [ник]`, `/tpdeny [ник]`, `/tpacancel` | просить перенос к игроку и отвечать на чужие просьбы |
 | `codeessentials.tpa.here` | `/tpahere <ник>` | звать игрока к себе |
-| `codeessentials.tpa.toggle` | `/tpatoggle` | закрыть и открыть приём просьб |
+| `codeessentials.tpa.toggle` | `/tpatoggle` | закрыть и открыть приём просьб, закрытое состояние переживает перезаход |
 
 ## Администрирование
 
@@ -129,6 +129,7 @@ CodeCore, ноды выдаются её файлом; после установ
 
 `config/code/config.toml`, секция `[owners]`, ключ `essentials`: `auto` отдаёт роль нашему моду,
 `off` не отдаёт никому, имя отдаёт названному владельцу. Победитель получает `TeleportService`,
-`HomeService`, `WarpService`, `SpawnService` и `BackService` в реестре ядра, вес выбирает само ядро.
+`HomeService`, `WarpService`, `SpawnService`, `BackService` и `KitService` в реестре ядра, вес
+выбирает само ядро.
 Незнакомое имя уходит по правилу `auto` с предупреждением в лог. Ключ читается один раз при старте:
 `/essentials reload` его не меняет, нужен перезапуск сервера, и ответ команды об этом говорит.

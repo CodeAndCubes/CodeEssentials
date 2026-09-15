@@ -1,5 +1,6 @@
 package com.mrleonardos.codeessentials.internal.store;
 
+import java.util.Collections;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -66,10 +67,14 @@ public final class SingleWriterImpl implements SingleWriter {
         if (foreign.isPresent()) {
             return foreign.get();
         }
-        if (!JsonPlayerDataStore.ID.equals(configured)) {
-            log.warn("Storage provider {} is not registered, falling back to {}", configured, JsonPlayerDataStore.ID);
+        if (JsonPlayerDataStore.ID.equals(configured)) {
+            return builtin;
         }
-        return builtin;
+        log.warn(
+            "Storage seam [storage].provider holds the unregistered name {}, player state is off: "
+                + "nothing is read or written until the name matches a registered provider",
+            configured);
+        return new RefusedStore(configured);
     }
 
     @Override
@@ -125,6 +130,11 @@ public final class SingleWriterImpl implements SingleWriter {
         wake();
     }
 
+    @Override
+    public boolean working() {
+        return !(provider() instanceof RefusedStore);
+    }
+
     public void start() {
         lock.lock();
         try {
@@ -133,7 +143,9 @@ public final class SingleWriterImpl implements SingleWriter {
         } finally {
             lock.unlock();
         }
-        announce(current);
+        if (working()) {
+            announce(current);
+        }
         scheduleAutosave();
     }
 
@@ -200,7 +212,16 @@ public final class SingleWriterImpl implements SingleWriter {
             if (!stored.successful()) {
                 if (stored.failure()
                     .get() != StoreResult.Failure.UNSUPPORTED) {
-                    log.warn("Provider {} refused the change: {}", provider().id(), stored);
+                    if (working()) {
+                        log.warn(
+                            "Provider {} refused the change: {} {}",
+                            provider().id(),
+                            stored.failure()
+                                .map(Enum::name)
+                                .orElse(""),
+                            stored.message()
+                                .orElse(""));
+                    }
                     return stored;
                 }
                 tellUnsupported(stored);
@@ -253,7 +274,13 @@ public final class SingleWriterImpl implements SingleWriter {
         try {
             StoreResult written = buffered.flush();
             if (!written.successful()) {
-                log.error("Player state was not saved: {}", written);
+                log.error(
+                    "Player state was not saved: {} {}",
+                    written.failure()
+                        .map(Enum::name)
+                        .orElse(""),
+                    written.message()
+                        .orElse(""));
             }
             return written;
         } finally {
@@ -341,5 +368,36 @@ public final class SingleWriterImpl implements SingleWriter {
     public interface Lookup {
 
         Optional<PlayerDataStore> store(String id);
+    }
+
+    /** Хранилище выключенного шва: ничего не читает, любую правку отвергает, в json не пишет. */
+    private static final class RefusedStore implements PlayerDataStore {
+
+        private final String wanted;
+
+        RefusedStore(String wanted) {
+            this.wanted = wanted;
+        }
+
+        @Override
+        public String id() {
+            return wanted;
+        }
+
+        @Override
+        public Map<UUID, PlayerRecord> loadPlayers() {
+            return Collections.emptyMap();
+        }
+
+        @Override
+        public Map<UUID, Map<String, Long>> loadCooldowns() {
+            return Collections.emptyMap();
+        }
+
+        @Override
+        public StoreResult apply(ChangeBatch batch) {
+            return StoreResult
+                .failure(StoreResult.Failure.PROVIDER_FAILED, "storage provider " + wanted + " is not registered");
+        }
     }
 }

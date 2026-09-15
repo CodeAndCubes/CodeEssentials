@@ -2,6 +2,7 @@ package com.mrleonardos.codeessentials.internal;
 
 import com.mrleonardos.codecore.api.config.Comment;
 import com.mrleonardos.codecore.api.config.SectionSpec;
+import com.mrleonardos.codeessentials.internal.engine.EngineRules;
 
 @Comment("Перемещения. Файлы лежат в config/code/essentials/.")
 public final class EssentialsSection {
@@ -9,13 +10,12 @@ public final class EssentialsSection {
     public static final String NAME = "essentials";
 
     public static final int DEFAULT_HOMES = 3;
-    public static final int DEFAULT_WARMUP_SECONDS = 3;
 
     @Comment("Сколько домов у игрока без личного лимита из меты.")
     public int homes = DEFAULT_HOMES;
 
     @Comment("Сколько секунд игрок стоит на месте перед переносом.")
-    public int warmupSeconds = DEFAULT_WARMUP_SECONDS;
+    public int warmupSeconds = EngineRules.DEFAULT_WARMUP_SECONDS;
 
     public Cooldowns cooldowns = new Cooldowns();
 

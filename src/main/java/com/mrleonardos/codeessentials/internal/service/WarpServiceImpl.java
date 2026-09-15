@@ -26,6 +26,8 @@ public final class WarpServiceImpl implements WarpService {
     private final SpotCheck spots;
     private final Logger log;
 
+    private volatile Map<String, WarpRecord> decoded;
+
     public WarpServiceImpl(Supplier<EssentialsSettings> settings, Supplier<SharedSettings> shared,
         ConfigFile<WarpsFile> file, SpotCheck spots, Logger log) {
         this.settings = settings;
@@ -48,6 +50,20 @@ public final class WarpServiceImpl implements WarpService {
         if (!file.loaded()) {
             return Collections.emptyMap();
         }
+        Map<String, WarpRecord> held = decoded;
+        if (held == null) {
+            held = decodeAll();
+            decoded = held;
+        }
+        return held;
+    }
+
+    /** Забыть разобранные варпы: файл перечитан, битая запись называется один раз на загрузку. */
+    public void reread() {
+        decoded = null;
+    }
+
+    private Map<String, WarpRecord> decodeAll() {
         Map<String, WarpRecord> decoded = new TreeMap<>();
         for (Map.Entry<String, WarpsFile.Warp> entry : file.get().warps.entrySet()) {
             WarpRecord record = decode(entry.getKey(), entry.getValue());
@@ -100,6 +116,7 @@ public final class WarpServiceImpl implements WarpService {
             restore(stored, warp.name(), previous);
             return written;
         }
+        decoded = null;
         if (shared.get()
             .logChanges()) {
             log.info(
@@ -133,6 +150,7 @@ public final class WarpServiceImpl implements WarpService {
             restore(held, key, previous);
             return written;
         }
+        decoded = null;
         if (shared.get()
             .logChanges()) {
             log.info("{} deleted warp {}", actor, key);

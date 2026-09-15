@@ -22,6 +22,7 @@ import com.mrleonardos.codeessentials.api.store.StoreResult;
 import com.mrleonardos.codeessentials.internal.command.EssentialsMessages;
 import com.mrleonardos.codeessentials.internal.command.KitEditors;
 import com.mrleonardos.codeessentials.internal.kits.KitSettlement;
+import com.mrleonardos.codeessentials.internal.kits.WornSlots;
 
 final class KitChests implements KitEditors {
 
@@ -91,7 +92,7 @@ final class KitChests implements KitEditors {
     }
 
     @Override
-    public Optional<KitItem[]> capture(UUID admin) {
+    public Optional<WornSlots> capture(UUID admin) {
         return inventories.worn(admin);
     }
 
@@ -122,7 +123,8 @@ final class KitChests implements KitEditors {
             return;
         }
         KitDefinition.Builder builder = KitDefinition.named(inventory.title);
-        List<KitItem> left = new ArrayList<>();
+        List<KitItem> cells = new ArrayList<>();
+        List<KitItem> spares = new ArrayList<>();
         List<ItemStack> strangers = new ArrayList<>();
         for (int slot = 0; slot < SLOTS; slot++) {
             ItemStack stack = inventory.getStackInSlot(slot);
@@ -134,12 +136,14 @@ final class KitChests implements KitEditors {
                 strangers.add(stack);
                 continue;
             }
-            left.add(item);
             if (slot < SPARES) {
+                cells.add(item);
                 builder.slot(slot, item);
+            } else {
+                spares.add(item);
             }
         }
-        settle(admin, inventory, KitSettlement.between(inventory.shown, left), strangers);
+        settle(admin, inventory, KitSettlement.between(inventory.shown, cells, spares), strangers);
         save(admin, builder.build());
     }
 

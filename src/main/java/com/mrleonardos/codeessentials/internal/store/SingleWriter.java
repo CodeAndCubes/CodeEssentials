@@ -12,4 +12,9 @@ public interface SingleWriter {
     StoreResult commit(EssentialsState next, ChangeBatch batch);
 
     void flush();
+
+    /**
+     * Работает ли хранилище. Ложь значит, что имя провайдера из конфига не зарегистрировано и состояние мода выключено.
+     */
+    boolean working();
 }

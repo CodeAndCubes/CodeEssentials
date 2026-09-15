@@ -35,6 +35,7 @@ public final class LocationsCodec {
     public static final String BACK = "back";
     public static final String KITS = "kits";
     public static final String CLAIMS = "claims";
+    public static final String REQUESTS_CLOSED = "requestsClosed";
     public static final String POINT = "point";
     public static final String CREATED_AT = "createdAt";
     public static final String ORIGIN = "origin";
@@ -204,10 +205,22 @@ public final class LocationsCodec {
         Map<String, List<KitItem>> kits = readKits(uuid, data.get(KITS), log, tally, held);
         Set<String> claims = readClaims(data.get(CLAIMS), log, tally, held);
         try {
-            return PlayerRecord.of(uuid, text(data.get(NAME)), homes, back, kits, claims);
+            return PlayerRecord.of(uuid, text(data.get(NAME)), homes, back, kits, claims, closed(data));
         } catch (RuntimeException broken) {
             warn(log, "Player {} is unusable and stays in the file untouched: {}", uuid, broken.getMessage());
             return null;
+        }
+    }
+
+    private static boolean closed(JsonObject data) {
+        JsonElement element = data.get(REQUESTS_CLOSED);
+        if (element == null || !element.isJsonPrimitive()) {
+            return false;
+        }
+        try {
+            return element.getAsBoolean();
+        } catch (RuntimeException malformed) {
+            return false;
         }
     }
 
@@ -428,6 +441,9 @@ public final class LocationsCodec {
                 claims.add(new JsonPrimitive(claim));
             }
             data.add(CLAIMS, claims);
+        }
+        if (player.requestsClosed()) {
+            data.addProperty(REQUESTS_CLOSED, Boolean.TRUE);
         }
         return data;
     }

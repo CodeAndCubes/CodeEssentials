@@ -52,6 +52,21 @@ class PlacesServicesTest {
     }
 
     @Test
+    void aBrokenWarpIsNamedOncePerLoadNotPerRequest() {
+        WarpsFile file = new WarpsFile();
+        file.warps.put("broken", new WarpsFile.Warp("не точка", ""));
+        WarpServiceImpl warps = warps(file, SafeSpotResult.found(SHOP, SHOP, 1));
+
+        int told = record(() -> {
+            warps.warps();
+            warps.warps();
+            warps.warp("broken");
+        }, "broken");
+
+        assertEquals(1, told, "битая запись называется один раз на загрузку файла, а не на каждый запрос");
+    }
+
+    @Test
     void theWarpNameIsReadWithoutRegardToCase() {
         WarpsFile file = new WarpsFile();
         file.warps.put("SHOP", new WarpsFile.Warp(SHOP.print(), ""));
@@ -349,5 +364,41 @@ class PlacesServicesTest {
             new ServiceTestStubs.Files<>(file),
             new ServiceTestStubs.Spots(spot),
             LOG);
+    }
+
+    private int record(Runnable work, String word) {
+        org.apache.logging.log4j.core.Logger held = (org.apache.logging.log4j.core.Logger) LOG;
+        CountingAppender appender = new CountingAppender(word);
+        org.apache.logging.log4j.Level before = held.getLevel();
+        held.addAppender(appender);
+        held.setLevel(org.apache.logging.log4j.Level.WARN);
+        try {
+            work.run();
+        } finally {
+            held.removeAppender(appender);
+            held.setLevel(before);
+        }
+        return appender.seen;
+    }
+
+    private static final class CountingAppender extends org.apache.logging.log4j.core.appender.AbstractAppender {
+
+        private final String word;
+        private int seen;
+
+        CountingAppender(String word) {
+            super("counting-" + word, null, null, true);
+            this.word = word;
+            start();
+        }
+
+        @Override
+        public void append(org.apache.logging.log4j.core.LogEvent event) {
+            if (event.getMessage()
+                .getFormattedMessage()
+                .contains(word)) {
+                seen++;
+            }
+        }
     }
 }

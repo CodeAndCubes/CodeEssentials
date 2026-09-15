@@ -18,6 +18,8 @@ import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
 
+import com.mrleonardos.codeessentials.api.EssentialsLimits;
+
 class RecordsTest {
 
     private static final UUID PLAYER = UUID.fromString("00000000-0000-0000-0000-000000000007");
@@ -125,7 +127,9 @@ class RecordsTest {
         assertFalse(
             player.topBack()
                 .isPresent());
-        assertEquals(PLAYER.toString() + ": 0 home(s), 0 back, 0 kit buffer(s), 0 kit claim(s)", player.toString());
+        assertEquals(
+            PLAYER.toString() + ": 0 home(s), 0 back, 0 kit buffer(s), 0 kit claim(s), requests open",
+            player.toString());
         assertEquals(
             "Steve",
             player.withName("Steve")
@@ -227,10 +231,10 @@ class RecordsTest {
     @Test
     void backStackKeepsTheNewestAndTrimsTheTail() {
         PlayerRecord player = PlayerRecord.empty(PLAYER, "Steve")
-            .pushBack(point(1), 3)
-            .pushBack(point(2), 3)
-            .pushBack(point(3), 3)
-            .pushBack(point(4), 3);
+            .pushBack(point(1), 3, EssentialsLimits.defaults())
+            .pushBack(point(2), 3, EssentialsLimits.defaults())
+            .pushBack(point(3), 3, EssentialsLimits.defaults())
+            .pushBack(point(4), 3, EssentialsLimits.defaults());
 
         assertEquals(
             3,
@@ -260,19 +264,19 @@ class RecordsTest {
 
         assertEquals(
             1,
-            player.pushBack(point(1), 0)
-                .pushBack(point(2), 0)
+            player.pushBack(point(1), 0, EssentialsLimits.defaults())
+                .pushBack(point(2), 0, EssentialsLimits.defaults())
                 .back()
                 .size());
         assertEquals(
             1,
-            player.pushBack(point(1), -5)
+            player.pushBack(point(1), -5, EssentialsLimits.defaults())
                 .back()
                 .size());
 
         PlayerRecord greedy = player;
         for (int index = 0; index < 20; index++) {
-            greedy = greedy.pushBack(point(index), 999);
+            greedy = greedy.pushBack(point(index), 999, EssentialsLimits.defaults());
         }
         assertEquals(
             10,

@@ -40,11 +40,11 @@ public final class EssentialsLimits {
     /** Сколько tpa-запросов ждут ответа у одного игрока. */
     public static final int DEFAULT_PENDING_REQUESTS = 8;
 
-    /** Сколько секунд tpa-запрос ждёт ответа. */
-    public static final int DEFAULT_REQUEST_TIMEOUT_SECONDS = 3600;
+    /** Сколько секунд tpa-запрос ждёт ответа, потолок. */
+    public static final int REQUEST_TIMEOUT_SECONDS_CEILING = 3600;
 
-    /** Сколько секунд длится тёплая задержка. */
-    public static final int DEFAULT_WARMUP_SECONDS = 300;
+    /** Сколько секунд длится тёплая задержка, потолок. */
+    public static final int WARMUP_SECONDS_CEILING = 300;
 
     /** Радиус колец поиска безопасной точки в блоках. */
     public static final int DEFAULT_SAFE_SPOT_RADIUS = 8;
@@ -74,8 +74,8 @@ public final class EssentialsLimits {
         DEFAULT_HOMES_PER_PLAYER,
         DEFAULT_WARPS,
         DEFAULT_PENDING_REQUESTS,
-        DEFAULT_REQUEST_TIMEOUT_SECONDS,
-        DEFAULT_WARMUP_SECONDS,
+        REQUEST_TIMEOUT_SECONDS_CEILING,
+        WARMUP_SECONDS_CEILING,
         DEFAULT_SAFE_SPOT_RADIUS,
         DEFAULT_BACK_DEPTH,
         DEFAULT_RANDOM_ATTEMPTS);
@@ -297,8 +297,8 @@ public final class EssentialsLimits {
         private int homesPerPlayer = DEFAULT_HOMES_PER_PLAYER;
         private int warps = DEFAULT_WARPS;
         private int pendingRequests = DEFAULT_PENDING_REQUESTS;
-        private int requestTimeoutSeconds = DEFAULT_REQUEST_TIMEOUT_SECONDS;
-        private int warmupSeconds = DEFAULT_WARMUP_SECONDS;
+        private int requestTimeoutSeconds = REQUEST_TIMEOUT_SECONDS_CEILING;
+        private int warmupSeconds = WARMUP_SECONDS_CEILING;
         private int safeSpotRadius = DEFAULT_SAFE_SPOT_RADIUS;
         private int backDepth = DEFAULT_BACK_DEPTH;
         private int randomAttempts = DEFAULT_RANDOM_ATTEMPTS;
@@ -331,13 +331,13 @@ public final class EssentialsLimits {
 
         /** Срок ожидания ответа. Значение выше заводского ужимается до заводского. */
         public Builder requestTimeoutSeconds(int value) {
-            requestTimeoutSeconds = lower(value, DEFAULT_REQUEST_TIMEOUT_SECONDS, "limits.requestTimeoutSeconds");
+            requestTimeoutSeconds = lower(value, REQUEST_TIMEOUT_SECONDS_CEILING, "limits.requestTimeoutSeconds");
             return this;
         }
 
         /** Тёплая задержка. Значение выше заводского ужимается до заводского. */
         public Builder warmupSeconds(int value) {
-            warmupSeconds = lower(value, DEFAULT_WARMUP_SECONDS, "limits.warmupSeconds");
+            warmupSeconds = lower(value, WARMUP_SECONDS_CEILING, "limits.warmupSeconds");
             return this;
         }
 

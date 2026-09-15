@@ -45,6 +45,7 @@ codeessentials.error.back_death_denied=Returning to a death spot is closed to yo
 codeessentials.error.back_crossworld_denied=Returning to another dimension is closed to you
 codeessentials.error.bad_arguments=I could not read the arguments: %s
 codeessentials.error.rtp_off=Random teleport is switched off on this server
+codeessentials.error.state_off=Player state is switched off: the storage provider from the config is not registered
 codeessentials.error.rtp_world=Random teleport does not work in this world
 codeessentials.error.rtp_not_found=No spot to land in after %s tries, try again
 codeessentials.error.home_limit=You already have %s homes, that is your limit

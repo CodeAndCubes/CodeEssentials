@@ -25,7 +25,6 @@ import com.mrleonardos.codeessentials.api.manage.WarpService;
 import com.mrleonardos.codeessentials.api.model.BackPoint;
 import com.mrleonardos.codeessentials.api.model.HomeRecord;
 import com.mrleonardos.codeessentials.api.model.KitDefinition;
-import com.mrleonardos.codeessentials.api.model.KitItem;
 import com.mrleonardos.codeessentials.api.model.Point;
 import com.mrleonardos.codeessentials.api.model.WarpRecord;
 import com.mrleonardos.codeessentials.api.store.StoreResult;
@@ -36,6 +35,7 @@ import com.mrleonardos.codeessentials.api.teleport.TeleportRequest;
 import com.mrleonardos.codeessentials.api.teleport.TeleportService;
 import com.mrleonardos.codeessentials.internal.EssentialsSettings;
 import com.mrleonardos.codeessentials.internal.SharedSettings;
+import com.mrleonardos.codeessentials.internal.kits.WornSlots;
 
 public final class EssentialsCommands {
 
@@ -305,6 +305,9 @@ public final class EssentialsCommands {
     }
 
     private void home(CommandContext context) {
+        if (stateOff(context)) {
+            return;
+        }
         UUID self = playerOf(context);
         if (self == null) {
             return;
@@ -340,6 +343,9 @@ public final class EssentialsCommands {
     }
 
     private void setHome(CommandContext context) {
+        if (stateOff(context)) {
+            return;
+        }
         UUID self = playerOf(context);
         if (self == null) {
             return;
@@ -370,6 +376,9 @@ public final class EssentialsCommands {
     }
 
     private void deleteHome(CommandContext context) {
+        if (stateOff(context)) {
+            return;
+        }
         UUID self = playerOf(context);
         if (self == null) {
             return;
@@ -385,6 +394,9 @@ public final class EssentialsCommands {
     }
 
     private void listHomes(CommandContext context) {
+        if (stateOff(context)) {
+            return;
+        }
         UUID self = playerOf(context);
         if (self == null) {
             return;
@@ -559,6 +571,9 @@ public final class EssentialsCommands {
     }
 
     private void back(CommandContext context) {
+        if (stateOff(context)) {
+            return;
+        }
         UUID self = playerOf(context);
         if (self == null) {
             return;
@@ -619,6 +634,9 @@ public final class EssentialsCommands {
             listKits(context);
             return;
         }
+        if (stateOff(context)) {
+            return;
+        }
         UUID self = playerOf(context);
         if (self == null) {
             return;
@@ -664,14 +682,16 @@ public final class EssentialsCommands {
                 Integer.valueOf(buffered));
             return;
         }
-        if (kit.once() && kits.get()
-            .taken(self, name)) {
+        if (self != null && kit.once()
+            && kits.get()
+                .taken(self, name)) {
             context
                 .reply(locked ? EssentialsMessages.KITS_LINE_TAKEN_LOCKED : EssentialsMessages.KITS_LINE_TAKEN, name);
             return;
         }
-        long left = kits.get()
-            .cooldownLeft(self, name);
+        long left = self == null ? 0L
+            : kits.get()
+                .cooldownLeft(self, name);
         if (left > 0L) {
             context.reply(
                 locked ? EssentialsMessages.KITS_LINE_WAIT_LOCKED : EssentialsMessages.KITS_LINE_WAIT,
@@ -710,7 +730,7 @@ public final class EssentialsCommands {
             return;
         }
         String name = lower(context.get(NAME));
-        KitItem[] worn = editors.capture(self)
+        WornSlots worn = editors.capture(self)
             .orElse(null);
         if (worn == null) {
             context.replyError(EssentialsMessages.ERROR_SENDER_NOT_PLAYER);
@@ -718,8 +738,8 @@ public final class EssentialsCommands {
         }
         KitDefinition.Builder builder = KitDefinition.named(name);
         for (int slot = 0; slot < KitDefinition.SLOTS; slot++) {
-            if (worn[slot] != null) {
-                builder.slot(slot, worn[slot]);
+            if (worn.item(slot) != null) {
+                builder.slot(slot, worn.item(slot));
             }
         }
         define(context, builder.build());
@@ -737,6 +757,9 @@ public final class EssentialsCommands {
     }
 
     private void giveKit(CommandContext context) {
+        if (stateOff(context)) {
+            return;
+        }
         String name = lower(context.get(KIT));
         if (!kits.get()
             .kit(name)
@@ -958,6 +981,9 @@ public final class EssentialsCommands {
     }
 
     private void toggleRequests(CommandContext context) {
+        if (stateOff(context)) {
+            return;
+        }
         UUID self = playerOf(context);
         if (self == null) {
             return;
@@ -1126,6 +1152,9 @@ public final class EssentialsCommands {
     }
 
     private void cooldowns(CommandContext context) {
+        if (stateOff(context)) {
+            return;
+        }
         UUID target = target(context, context.get(PLAYER));
         if (target == null) {
             return;
@@ -1236,6 +1265,14 @@ public final class EssentialsCommands {
             return false;
         }
         context.replyError(EssentialsMessages.ERROR_COOLDOWN, Durations.format(seconds(left)));
+        return true;
+    }
+
+    private boolean stateOff(CommandContext context) {
+        if (maintenance.stateOn()) {
+            return false;
+        }
+        context.replyError(EssentialsMessages.ERROR_STATE_OFF);
         return true;
     }
 

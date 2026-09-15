@@ -4,7 +4,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import com.mrleonardos.codeessentials.api.model.KitDefinition;
-import com.mrleonardos.codeessentials.api.model.KitItem;
+import com.mrleonardos.codeessentials.internal.kits.WornSlots;
 
 public interface KitEditors {
 
@@ -17,8 +17,8 @@ public interface KitEditors {
      */
     Opening edit(UUID admin, KitDefinition kit);
 
-    /** Слоты админа в порядке кита: кандидат для снимка. Пустой ответ, когда админа нет на сервере. */
-    Optional<KitItem[]> capture(UUID admin);
+    /** Слепок слотов админа в порядке кита: кандидат для снимка. Пустой ответ, когда админа нет на сервере. */
+    Optional<WornSlots> capture(UUID admin);
 
     /** Закрыть все редакторы и записать содержимое. Зовётся на остановке сервера. */
     void closeAll();

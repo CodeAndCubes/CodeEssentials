@@ -25,7 +25,7 @@ class KitDeliveryTest {
     void everyItemLandsInItsOwnSlotOnAnEmptyInventory() {
         KitDefinition kit = kit(slot(0, BREAD), slot(1, PICK), slot(39, HELMET));
 
-        KitDelivery report = KitDelivery.deliver(kit, debt(), slots(), stacking());
+        KitDelivery report = KitDelivery.deliver(kit, debt(), WornSlots.of(slots()), stacking());
 
         assertEquals(BREAD, report.slots()[0]);
         assertEquals(PICK, report.slots()[1]);
@@ -44,7 +44,7 @@ class KitDeliveryTest {
         worn[0] = KitItem.of("minecraft:cobblestone", 1);
         worn[5] = KitItem.of("minecraft:dirt", 1);
 
-        KitDelivery report = KitDelivery.deliver(kit, debt(), worn, stacking());
+        KitDelivery report = KitDelivery.deliver(kit, debt(), WornSlots.of(worn), stacking());
 
         assertEquals(KitItem.of("minecraft:cobblestone", 1), report.slots()[0], "своя клетка игрока не трогается");
         assertEquals(BREAD, report.slots()[1], "первый свободный слот, а не сосед занятого");
@@ -58,7 +58,7 @@ class KitDeliveryTest {
         KitItem[] worn = slots();
         worn[7] = KitItem.of("minecraft:bread", 60);
 
-        KitDelivery report = KitDelivery.deliver(kit, debt(), worn, stacking());
+        KitDelivery report = KitDelivery.deliver(kit, debt(), WornSlots.of(worn), stacking());
 
         assertEquals(KitItem.of("minecraft:bread", 64), report.slots()[7]);
         assertEquals(KitItem.of("minecraft:bread", 36), report.slots()[0]);
@@ -72,7 +72,7 @@ class KitDeliveryTest {
         KitItem[] worn = slots();
         worn[1] = KitItem.of("minecraft:bread", 60);
 
-        KitDelivery report = KitDelivery.deliver(kit, debt(), worn, stacking());
+        KitDelivery report = KitDelivery.deliver(kit, debt(), WornSlots.of(worn), stacking());
 
         assertEquals(KitItem.of("minecraft:bread", 64), report.slots()[1]);
         assertEquals(KitItem.of("minecraft:bread", 16), report.slots()[0]);
@@ -84,7 +84,7 @@ class KitDeliveryTest {
     void aRecordBiggerThanAStackIsSpreadOverSeveralStacks() {
         KitDefinition kit = kit(slot(2, KitItem.of("minecraft:bread", 128)));
 
-        KitDelivery report = KitDelivery.deliver(kit, debt(), slots(), stacking());
+        KitDelivery report = KitDelivery.deliver(kit, debt(), WornSlots.of(slots()), stacking());
 
         assertEquals(KitItem.of("minecraft:bread", 64), report.slots()[2]);
         assertEquals(KitItem.of("minecraft:bread", 64), report.slots()[0], "остаток идёт в первый свободный слот");
@@ -96,7 +96,7 @@ class KitDeliveryTest {
     void aRecordThatIsNotAWholeNumberOfStacksKeepsEverySlotWithinTheLimit() {
         KitDefinition kit = kit(slot(2, KitItem.of("minecraft:bread", 200)));
 
-        KitDelivery report = KitDelivery.deliver(kit, debt(), slots(), stacking());
+        KitDelivery report = KitDelivery.deliver(kit, debt(), WornSlots.of(slots()), stacking());
 
         assertEquals(KitItem.of("minecraft:bread", 64), report.slots()[2]);
         assertEquals(KitItem.of("minecraft:bread", 64), report.slots()[0]);
@@ -109,7 +109,8 @@ class KitDeliveryTest {
     void aFullInventoryLeavesEverythingInTheBuffer() {
         KitDefinition kit = kit(slot(0, BREAD), slot(39, HELMET));
 
-        KitDelivery report = KitDelivery.deliver(kit, debt(KitItem.of("minecraft:bread", 3)), full(), stacking());
+        KitDelivery report = KitDelivery
+            .deliver(kit, debt(KitItem.of("minecraft:bread", 3)), WornSlots.of(full()), stacking());
 
         assertArrayEquals(full(), report.slots());
         assertEquals(0, report.delivered());
@@ -121,7 +122,8 @@ class KitDeliveryTest {
     void bufferLeftoversOfTheSameKindGrowOneEntry() {
         KitDefinition kit = kit(slot(0, KitItem.of("minecraft:bread", 64)));
 
-        KitDelivery report = KitDelivery.deliver(kit, debt(KitItem.of("minecraft:bread", 3)), full(), stacking());
+        KitDelivery report = KitDelivery
+            .deliver(kit, debt(KitItem.of("minecraft:bread", 3)), WornSlots.of(full()), stacking());
 
         assertEquals(Arrays.asList(KitItem.of("minecraft:bread", 67)), report.pending());
     }
@@ -132,7 +134,7 @@ class KitDeliveryTest {
         KitItem[] worn = slots();
         worn[0] = KitItem.of("minecraft:cobblestone", 1);
 
-        KitDelivery report = KitDelivery.deliver(kit, debt(), worn, stacking());
+        KitDelivery report = KitDelivery.deliver(kit, debt(), WornSlots.of(worn), stacking());
 
         assertNull(report.slots()[38], "шлем в клетке нагрудника не надевается");
         assertNull(report.slots()[39], "сапоги в клетке шлема не надеваются");
@@ -147,7 +149,7 @@ class KitDeliveryTest {
         KitItem[] worn = slots();
         worn[39] = KitItem.of("minecraft:diamond_helmet", 1);
 
-        KitDelivery report = KitDelivery.deliver(kit, debt(), worn, stacking());
+        KitDelivery report = KitDelivery.deliver(kit, debt(), WornSlots.of(worn), stacking());
 
         assertEquals(BOOTS, report.slots()[36]);
         assertEquals(KitItem.of("minecraft:diamond_helmet", 1), report.slots()[39]);
@@ -160,7 +162,8 @@ class KitDeliveryTest {
     void theClaimIsDeliveredBeforeTheDebt() {
         KitDefinition kit = kit(slot(0, BREAD));
 
-        KitDelivery report = KitDelivery.deliver(kit, debt(KitItem.of("minecraft:apple", 5)), slots(), stacking());
+        KitDelivery report = KitDelivery
+            .deliver(kit, debt(KitItem.of("minecraft:apple", 5)), WornSlots.of(slots()), stacking());
 
         assertEquals(BREAD, report.slots()[0], "новое получение кладёт свой слот первым");
         assertEquals(KitItem.of("minecraft:apple", 5), report.slots()[1], "долг идёт следом");
@@ -176,7 +179,7 @@ class KitDeliveryTest {
             KitDefinition.named("starter")
                 .build(),
             debt(KitItem.of("minecraft:apple", 5), PICK),
-            slots(),
+            WornSlots.of(slots()),
             stacking());
 
         assertEquals(KitItem.of("minecraft:apple", 5), report.slots()[0]);
@@ -191,11 +194,40 @@ class KitDeliveryTest {
     void anItemTheRegistryDoesNotKnowNeverReachesTheSlots() {
         KitDefinition kit = kit(slot(0, KitItem.of("mystmod:unknown_thing", 1)));
 
-        KitDelivery report = KitDelivery.deliver(kit, debt(), slots(), stacking());
+        KitDelivery report = KitDelivery.deliver(kit, debt(), WornSlots.of(slots()), stacking());
 
         assertNull(report.slots()[0]);
         assertEquals(0, report.delivered());
         assertEquals(Arrays.asList(KitItem.of("mystmod:unknown_thing", 1)), report.pending());
+    }
+
+    @Test
+    void anUnrecordableItemKeepsItsSlotAndTheKitItemOverflows() {
+        KitItem[] worn = slots();
+        boolean[] unrecorded = new boolean[KitDefinition.SLOTS];
+        unrecorded[0] = true;
+        unrecorded[KitDefinition.ARMOR_HELMET] = true;
+
+        KitDelivery report = KitDelivery.deliver(
+            kit(slot(0, BREAD), slot(KitDefinition.ARMOR_HELMET, KitItem.of("minecraft:diamond_helmet", 1))),
+            debt(),
+            WornSlots.of(worn, unrecorded),
+            stacking());
+
+        assertNull(report.slots()[0], "в слот невыразимого предмета ничего не пишется");
+        assertNull(report.slots()[KitDefinition.ARMOR_HELMET], "слот брони с невыразимым предметом тоже не трогается");
+        assertTrue(
+            report.untouched()
+                .contains(Integer.valueOf(0)));
+        assertTrue(
+            report.untouched()
+                .contains(Integer.valueOf(KitDefinition.ARMOR_HELMET)));
+        assertEquals(BREAD, report.slots()[1], "хлеб идёт по переполнению в первый свободный слот");
+        assertEquals(
+            Arrays.asList(KitItem.of("minecraft:diamond_helmet", 1)),
+            report.pending(),
+            "шлем, чей слот занят невыразимым предметом, ждёт в буфере");
+        assertEquals(16, report.delivered());
     }
 
     @Test
@@ -205,7 +237,7 @@ class KitDeliveryTest {
         KitItem[] worn = slots();
         worn[0] = BREAD;
 
-        KitDelivery report = KitDelivery.deliver(kit, debt(), worn, stacking());
+        KitDelivery report = KitDelivery.deliver(kit, debt(), WornSlots.of(worn), stacking());
 
         assertEquals(BREAD, report.slots()[0]);
         worn[0] = null;

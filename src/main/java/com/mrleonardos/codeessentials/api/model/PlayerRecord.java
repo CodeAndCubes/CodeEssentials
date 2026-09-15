@@ -36,15 +36,17 @@ public final class PlayerRecord {
     private final List<BackPoint> back;
     private final Map<String, List<KitItem>> kits;
     private final Set<String> claims;
+    private final boolean requestsClosed;
 
     private PlayerRecord(UUID uuid, String name, Map<String, HomeRecord> homes, List<BackPoint> back,
-        Map<String, List<KitItem>> kits, Set<String> claims) {
+        Map<String, List<KitItem>> kits, Set<String> claims, boolean requestsClosed) {
         this.uuid = uuid;
         this.name = name;
         this.homes = homes;
         this.back = back;
         this.kits = kits;
         this.claims = claims;
+        this.requestsClosed = requestsClosed;
     }
 
     /**
@@ -72,6 +74,18 @@ public final class PlayerRecord {
      */
     public static PlayerRecord of(UUID uuid, String name, Collection<HomeRecord> homes, List<BackPoint> back,
         Map<String, List<KitItem>> kits, Set<String> claims) {
+        return of(uuid, name, homes, back, kits, claims, false);
+    }
+
+    /**
+     * Собрать запись со всем состоянием китов и приёмом просьб.
+     *
+     * @param kits           буфер китов: имя кита в предметы по порядку доставки, пустые списки не хранятся
+     * @param claims         имена взятых одноразовых китов
+     * @param requestsClosed закрыт ли приём tpa-просьб, состояние переживает перезаход
+     */
+    public static PlayerRecord of(UUID uuid, String name, Collection<HomeRecord> homes, List<BackPoint> back,
+        Map<String, List<KitItem>> kits, Set<String> claims, boolean requestsClosed) {
         Objects.requireNonNull(uuid, "uuid");
         Objects.requireNonNull(homes, "homes");
         Objects.requireNonNull(back, "back");
@@ -83,7 +97,7 @@ public final class PlayerRecord {
         }
         Map<String, List<KitItem>> buffered = new TreeMap<>();
         for (Map.Entry<String, List<KitItem>> entry : kits.entrySet()) {
-            List<KitItem> items = entry.getValue() == null ? null : entry.getValue();
+            List<KitItem> items = entry.getValue();
             if (items != null && !items.isEmpty()) {
                 buffered.put(entry.getKey(), Collections.unmodifiableList(new ArrayList<>(items)));
             }
@@ -94,7 +108,8 @@ public final class PlayerRecord {
             Collections.unmodifiableMap(byName),
             Collections.unmodifiableList(new ArrayList<>(back)),
             Collections.unmodifiableMap(buffered),
-            Collections.unmodifiableSet(new TreeSet<>(claims)));
+            Collections.unmodifiableSet(new TreeSet<>(claims)),
+            requestsClosed);
     }
 
     /** Игрок без домов и без записей возврата. */
@@ -164,9 +179,19 @@ public final class PlayerRecord {
         return claims;
     }
 
+    /** Закрыт ли приём tpa-просьб. */
+    public boolean requestsClosed() {
+        return requestsClosed;
+    }
+
+    /** Та же запись с другим приёмом tpa-просьб. */
+    public PlayerRecord withRequestsClosed(boolean closed) {
+        return closed == requestsClosed ? this : new PlayerRecord(uuid, name, homes, back, kits, claims, closed);
+    }
+
     /** Та же запись с обновлённым именем. */
     public PlayerRecord withName(String newName) {
-        return new PlayerRecord(uuid, newName, homes, back, kits, claims);
+        return new PlayerRecord(uuid, newName, homes, back, kits, claims, requestsClosed);
     }
 
     /** Та же запись с записанным домом: имя уже занято, значит дом переезжает на новую точку. */
@@ -174,7 +199,7 @@ public final class PlayerRecord {
         Objects.requireNonNull(home, "home");
         Map<String, HomeRecord> updated = new TreeMap<>(homes);
         updated.put(home.name(), home);
-        return new PlayerRecord(uuid, name, Collections.unmodifiableMap(updated), back, kits, claims);
+        return new PlayerRecord(uuid, name, Collections.unmodifiableMap(updated), back, kits, claims, requestsClosed);
     }
 
     /** Та же запись без указанного дома. Дома с таким именем нет, значит запись остаётся прежней. */
@@ -184,19 +209,20 @@ public final class PlayerRecord {
         }
         Map<String, HomeRecord> updated = new TreeMap<>(homes);
         updated.remove(homeName);
-        return new PlayerRecord(uuid, name, Collections.unmodifiableMap(updated), back, kits, claims);
+        return new PlayerRecord(uuid, name, Collections.unmodifiableMap(updated), back, kits, claims, requestsClosed);
     }
 
     /**
      * Та же запись с новой точкой на вершине стека возврата.
      *
-     * @param depth глубина стека, значение вне {@link EssentialsLimits} зажимается; лишние записи
-     *              уходят с хвоста
+     * @param depth  глубина стека, значение вне границ зажимается; лишние записи уходят с хвоста
+     * @param limits потолки, которыми зажимается глубина: чужой мод срезается по конфигу сервера, а
+     *               не по заводским числам
      */
-    public PlayerRecord pushBack(BackPoint point, int depth) {
+    public PlayerRecord pushBack(BackPoint point, int depth, EssentialsLimits limits) {
         Objects.requireNonNull(point, "point");
-        int kept = EssentialsLimits.defaults()
-            .clampBackDepth(depth);
+        Objects.requireNonNull(limits, "limits");
+        int kept = limits.clampBackDepth(depth);
         LinkedList<BackPoint> updated = new LinkedList<>(back);
         updated.addFirst(point);
         while (updated.size() > kept) {
@@ -208,7 +234,8 @@ public final class PlayerRecord {
             homes,
             Collections.unmodifiableList(new ArrayList<>(updated)),
             kits,
-            claims);
+            claims,
+            requestsClosed);
     }
 
     /** Та же запись без верхней точки стека. Стек пуст, значит запись остаётся прежней. */
@@ -222,7 +249,8 @@ public final class PlayerRecord {
             homes,
             Collections.unmodifiableList(new ArrayList<>(back.subList(1, back.size()))),
             kits,
-            claims);
+            claims,
+            requestsClosed);
     }
 
     /**
@@ -238,7 +266,17 @@ public final class PlayerRecord {
         }
         Set<String> updated = new TreeSet<>(claims);
         updated.add(kitName);
-        return new PlayerRecord(uuid, name, homes, back, kits, Collections.unmodifiableSet(updated));
+        return new PlayerRecord(uuid, name, homes, back, kits, Collections.unmodifiableSet(updated), requestsClosed);
+    }
+
+    /**
+     * Та же запись с отметкой одноразового кита, когда она нужна: повторяемый кит отметки не
+     * получает, сколько бы раз его ни выдавали.
+     *
+     * @param kitName имя кита в нижнем регистре
+     */
+    public PlayerRecord withKitClaim(boolean once, String kitName) {
+        return once ? withKitClaim(kitName) : this;
     }
 
     /**
@@ -263,7 +301,7 @@ public final class PlayerRecord {
             }
             updated.put(kitName, Collections.unmodifiableList(new ArrayList<>(items)));
         }
-        return new PlayerRecord(uuid, name, homes, back, Collections.unmodifiableMap(updated), claims);
+        return new PlayerRecord(uuid, name, homes, back, Collections.unmodifiableMap(updated), claims, requestsClosed);
     }
 
     @Override
@@ -279,13 +317,15 @@ public final class PlayerRecord {
             && homes.equals(that.homes)
             && back.equals(that.back)
             && kits.equals(that.kits)
-            && claims.equals(that.claims);
+            && claims.equals(that.claims)
+            && requestsClosed == that.requestsClosed;
     }
 
     @Override
     public int hashCode() {
         return (((uuid.hashCode() * 31 + Objects.hashCode(name)) * 31 + homes.hashCode()) * 31 + back.hashCode()) * 31
-            + (kits.hashCode() * 31 + claims.hashCode());
+            + (kits.hashCode() * 31 + claims.hashCode()) * 31
+            + Boolean.hashCode(requestsClosed);
     }
 
     @Override
@@ -298,6 +338,7 @@ public final class PlayerRecord {
             + kits.size()
             + " kit buffer(s), "
             + claims.size()
-            + " kit claim(s)";
+            + " kit claim(s), requests "
+            + (requestsClosed ? "closed" : "open");
     }
 }

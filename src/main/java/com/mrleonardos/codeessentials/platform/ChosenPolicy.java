@@ -11,20 +11,14 @@ import com.mrleonardos.codeessentials.api.teleport.BlockView;
 import com.mrleonardos.codeessentials.api.teleport.SafeSpotLimits;
 import com.mrleonardos.codeessentials.api.teleport.SafeSpotPolicy;
 import com.mrleonardos.codeessentials.api.teleport.SafeSpotResult;
+import com.mrleonardos.codeessentials.internal.engine.PolicyChoice;
 
 final class ChosenPolicy implements SafeSpotPolicy {
 
-    private final Supplier<String> wanted;
-    private final SafeSpotPolicy builtin;
-    private final Logger log;
+    private final PolicyChoice choice;
 
-    private volatile SafeSpotPolicy named;
-    private boolean unknownTold;
-
-    ChosenPolicy(Supplier<String> wanted, SafeSpotPolicy builtin, Logger log) {
-        this.wanted = wanted;
-        this.builtin = builtin;
-        this.log = log;
+    ChosenPolicy(Supplier<String> wanted, Logger log) {
+        this.choice = new PolicyChoice(wanted, EssentialsApi::policy, log);
     }
 
     @Override
@@ -37,29 +31,14 @@ final class ChosenPolicy implements SafeSpotPolicy {
         return active().find(view, hint, limits);
     }
 
+    void reset() {
+        choice.reset();
+    }
+
     private SafeSpotPolicy active() {
         SafeSpotPolicy held = CodeApi.services()
             .find(SafeSpotPolicy.class)
             .orElse(null);
-        return held == null || held == this ? named() : held;
-    }
-
-    private SafeSpotPolicy named() {
-        SafeSpotPolicy known = named;
-        if (known != null) {
-            return known;
-        }
-        String id = wanted.get();
-        SafeSpotPolicy found = EssentialsApi.policy(id)
-            .orElse(null);
-        if (found == null) {
-            if (!unknownTold) {
-                unknownTold = true;
-                log.warn("Safe spot policy {} is not registered, the built in one is used", id);
-            }
-            found = builtin;
-        }
-        named = found;
-        return found;
+        return held == null || held == this ? choice.named() : held;
     }
 }

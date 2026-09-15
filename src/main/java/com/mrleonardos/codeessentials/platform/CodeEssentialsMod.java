@@ -83,6 +83,7 @@ public final class CodeEssentialsMod {
 
     private ServerThreads threads;
     private CorePermissions rights;
+    private ChosenPolicy policy;
     private SingleWriterImpl writer;
     private JsonPlayerDataStore store;
     private TeleportEngine engine;
@@ -167,10 +168,9 @@ public final class CodeEssentialsMod {
         SafeSpotFinder builtin = new SafeSpotFinder();
         EssentialsApi.registerStore(store);
         EssentialsApi.registerPolicy(builtin);
-        ChosenPolicy policy = new ChosenPolicy(
+        policy = new ChosenPolicy(
             () -> config.get()
                 .policy(),
-            builtin,
             LOG);
 
         writer = new SingleWriterImpl(
@@ -198,8 +198,8 @@ public final class CodeEssentialsMod {
             threads,
             clock,
             LOG);
-        board = new RequestBoard(engine, worlds, cooldowns, this::rules, threads, clock);
-        homes = new HomeServiceImpl(config, common, rights, state, listeners::homes, threads, LOG);
+        board = new RequestBoard(engine, worlds, cooldowns, this::rules, threads, clock, writer, LOG);
+        homes = new HomeServiceImpl(config, common, rights, state, listeners::homes, threads, clock, LOG);
         warps = new WarpServiceImpl(config, common, warpsFile, worlds, LOG);
         spawns = new SpawnServiceImpl(common, spawnFile, LOG);
         kits = new KitServiceImpl(
@@ -248,6 +248,10 @@ public final class CodeEssentialsMod {
                 spawnFile,
                 kitsFile,
                 this::rules,
+                warps,
+                spawns,
+                kits,
+                writer,
                 this::refresh,
                 LOG),
             LOG).register(CodeApi.commands());
@@ -306,9 +310,15 @@ public final class CodeEssentialsMod {
         current.centerMode(LOG);
         current.failureMode(LOG);
         rules = EssentialsRules.of(current, shared, ceilings);
+        if (policy != null) {
+            policy.reset();
+        }
     }
 
     private String provider() {
+        if (!writer.working()) {
+            return shared.provider() + " is off";
+        }
         return EssentialsApi.store(shared.provider())
             .map(PlayerDataStore::id)
             .orElseGet(store::id);

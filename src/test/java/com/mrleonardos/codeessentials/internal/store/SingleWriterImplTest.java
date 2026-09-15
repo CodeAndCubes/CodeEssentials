@@ -264,7 +264,36 @@ class SingleWriterImplTest {
 
         assertSame(foreign, SingleWriterImpl.resolveProvider(FOREIGN_ID, lookup, builtin, LOG));
         assertSame(builtin, SingleWriterImpl.resolveProvider(JsonPlayerDataStore.ID, lookup, builtin, LOG));
-        assertSame(builtin, SingleWriterImpl.resolveProvider("unknown", lookup, builtin, LOG));
+        PlayerDataStore unknown = SingleWriterImpl.resolveProvider("unknown", lookup, builtin, LOG);
+        assertFalse(unknown == builtin, "незнакомое имя не откатывается на встроенное хранилище");
+    }
+
+    @Test
+    void anUnknownProviderNameSwitchesTheStateOff() {
+        MemoryPlayerDataStore builtin = store();
+        SingleWriterImpl.Lookup lookup = id -> Optional.<PlayerDataStore>empty();
+        SingleWriterImpl writer = new SingleWriterImpl(
+            builtin,
+            "nowhere",
+            lookup,
+            new TestScheduler(),
+            LOG,
+            clock::get,
+            20);
+        writer.start();
+
+        assertFalse(writer.working());
+        assertTrue(
+            writer.state()
+                .players()
+                .isEmpty(),
+            "выключенное хранилище ничего не читает");
+        assertFalse(commitSteve(writer).successful(), "выключенное хранилище отвергает любую правку");
+        assertTrue(
+            store().loadPlayers()
+                .isEmpty(),
+            "в встроенное хранилище ничего не пишется");
+        writer.stop();
     }
 
     private StoreResult commitSteve(SingleWriterImpl writer) {
